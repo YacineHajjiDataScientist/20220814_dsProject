@@ -5,49 +5,27 @@
 
 
 # To do
-+ find a way to create hour variable
 + plot variables alone (count) and vs gravity
-+ find a way to plot proportions by group
 + fill template
-
-
-# In[74]:
-
-
-time = pd.DataFrame(data={'a':['1200', '1845', '00:31']})
-time
-
-
-# In[80]:
-
-
-[i.replace(":", "") for i in time['a']]
-
-
-# In[13]:
-
-
-a=['07:05']
-a.replace(':', '')
-
-
-# In[11]:
-
-
-dfCarac['hrmn'].astype('object').replace(':', '')
-# [i.replace(":", "") for i in dfCarac['hrmn']]
 
 
 # # Session
 
-# In[8]:
+# In[ ]:
 
 
 # install modules
 pip install dill
 
 
-# In[1]:
+# In[ ]:
+
+
+# Option 2
+python -m install dill
+
+
+# In[2]:
 
 
 # import modules
@@ -61,7 +39,7 @@ import dill
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[2]:
+# In[3]:
 
 
 ##### Defining directory
@@ -70,14 +48,14 @@ os.chdir('C:\\Users\\Megaport\\Desktop\\jupyterNotebook')
 os.getcwd()
 
 
-# In[3]:
+# In[ ]:
 
 
 # import session
 dill.load_session('notebook_env.db')
 
 
-# In[59]:
+# In[98]:
 
 
 # save session
@@ -99,7 +77,7 @@ dfCarac = pd.read_csv('20220817_table_caracteristiques.csv', sep=',')
 # dfPool = pd.merge(dfLieux, dfUsagers, dfVehicules, dfCarac, on="Num_Acc")
 
 
-# In[11]:
+# In[8]:
 
 
 print('dfLieux dimensions:', dfLieux.shape)
@@ -111,7 +89,7 @@ print('dfCarac dimensions:', dfCarac.shape)
 
 # # Data-management
 
-# In[168]:
+# In[9]:
 
 
 # Computing date variable
@@ -134,13 +112,13 @@ dfCarac['hour'] = dfCarac['hrmn']//100
 dfCarac['year'] = dfCarac['date'].dt.year
 
 
-# In[13]:
+# In[10]:
 
 
 dfCarac['date'].value_counts().sort_index()
 
 
-# In[169]:
+# In[11]:
 
 
 dfCarac['year'].value_counts().sort_index()
@@ -156,7 +134,7 @@ dfCarac['year'].value_counts().sort_index()
 dfCarac.head(3)
 
 
-# In[58]:
+# In[13]:
 
 
 print('Jours:', len(dfCarac.jour.value_counts()))
@@ -175,45 +153,64 @@ print(dfCarac.hrmn.value_counts())
 print(dfCarac['agg'].value_counts())
 
 
-# In[37]:
+# In[14]:
 
 
 dfCarac.info()
 
 
-# In[22]:
+# In[20]:
 
 
 ### Proportion of NA
 dfCarac.isnull().sum() * 100 / len(dfCarac)
 
 
-# In[13]:
+# In[15]:
 
 
 dfLieux.head(3)
 
 
-# In[38]:
+# In[16]:
 
 
 dfLieux.info()
 
 
-# In[23]:
+# In[51]:
+
+
+dfLieux[['vosp', 'prof', 'plan', 'surf', 'infra', 'situ', 'env1', 'grav']].hist(figsize=(20, 8), layout=(2, 4));
+
+
+# In[54]:
+
+
+print(dfLieux.vosp.value_counts(normalize=True))
+
+
+# In[47]:
+
+
+# Equilibre variables
+print(dfLieux.env1.value_counts(normalize=True))
+
+
+# In[17]:
 
 
 ### Proportion of NA
 dfLieux.isnull().sum() * 100 / len(dfLieux)
 
 
-# In[39]:
+# In[18]:
 
 
 dfLieux[['nbv', 'vosp', 'prof', 'pr', 'pr1', 'plan', 'lartpc', 'larrout', 'surf', 'infra', 'situ', 'env1']].describe()
 
 
-# In[6]:
+# In[59]:
 
 
 print('nbv:', len(dfLieux.nbv.value_counts()))
@@ -230,20 +227,25 @@ print('situ:', len(dfLieux.situ.value_counts()))
 print('env1:', len(dfLieux.env1.value_counts()))
 print('hrmn:', len(dfLieux.larrout.value_counts()))
 print(dfLieux.vosp.value_counts())
+print(dfLieux.prof.value_counts())
+print(dfLieux.plan.value_counts())
 print(dfLieux.pr.value_counts())
 print(dfLieux.pr1.value_counts())
 print(dfLieux.lartpc.value_counts())
-print(dfLieux.env1.value_counts())
 print(dfLieux.larrout.value_counts())
+print(dfLieux.surf.value_counts())
+print(dfLieux.infra.value_counts())
+print(dfLieux.situ.value_counts())
+print(dfLieux.env1.value_counts())
 
 
-# In[14]:
+# In[20]:
 
 
 dfUsagers.head(3)
 
 
-# In[28]:
+# In[21]:
 
 
 dfVehicules.head(3)
@@ -252,7 +254,7 @@ dfVehicules.head(3)
 # ### Graphs
 # ##### Time-related graphs
 
-# In[90]:
+# In[22]:
 
 
 # Gravity variable in Carac dataframe
@@ -260,7 +262,7 @@ pd.DataFrame({'prop':dfCarac.grav.value_counts(normalize=True),
               'count':dfCarac.grav.value_counts()})
 
 
-# In[89]:
+# In[23]:
 
 
 # Gravity variable in Lieux dataframe
@@ -272,19 +274,20 @@ pd.DataFrame({'prop':dfLieux.grav.value_counts(normalize=True),
 
 # ### Year
 
-# In[170]:
+# In[73]:
 
 
 # Display plots
 plt.figure(figsize=(10, 4))
 sns.countplot(dfCarac['year'], palette=['#9D9D9D'])
-plt.hlines(y=len(dfCarac['year'])/16, xmin=-0.5, xmax=15.5, color='blue', alpha=0.4);
+plt.hlines(y=len(dfCarac['year'])/16, xmin=-0.5, xmax=15.5, color='blue', alpha=0.4)
+plt.title("Nombre d'accident par année");
 # It seems that the number of accident never stops decreasing year after year
 # The observable large decreases seem to be during 2007-2008, 2011-2012 and 2019-2020
 # The number of accident seemed to be stable between 2013 and 2019
 
 
-# In[171]:
+# In[25]:
 
 
 # Initiating dataframe grouped by month
@@ -302,7 +305,7 @@ sns.barplot(x="year", y="percentage", hue="grav", data=dfCaracGpByYear,
 # It seems that the gravity is less important during 2018 to 2020
 
 
-# In[172]:
+# In[26]:
 
 
 # data-management
@@ -319,7 +322,7 @@ fig.show()
 
 # ### Months
 
-# In[151]:
+# In[72]:
 
 
 # Display plots
@@ -330,12 +333,13 @@ sns.countplot(dfCarac['mois'],
                    '#D79696', '#D79696', '#D79696', 
                    '#D7CF96', '#D7CF96', '#D7CF96', 
                    '#96CED7'])
-plt.hlines(y=len(dfCarac['mois'])/12, xmin=-0.5, xmax=11.5, color='blue', alpha=0.4);
+plt.hlines(y=len(dfCarac['mois'])/12, xmin=-0.5, xmax=11.5, color='blue', alpha=0.4)
+plt.title("Nombre d'accident par mois");
 # On peut observer que les mois de juin, juillet, septembre et octobre semblent avoir le plus d'accidents
 # On peut observer que le mois de février compte le moins d'accidents mais il comporte aussi 28 jours
 
 
-# In[152]:
+# In[28]:
 
 
 # Initiating dataframe grouped by month
@@ -353,7 +357,7 @@ sns.barplot(x="mois", y="percentage", hue="grav", data=dfCaracGpByMonth,
 # It seems that the gravity of accident is larger during the weekend compared to the week
 
 
-# In[146]:
+# In[29]:
 
 
 # data-management
@@ -369,7 +373,7 @@ fig.show()
 
 # ### Weekday
 
-# In[86]:
+# In[30]:
 
 
 sns.countplot(x=dfCarac['weekday'], 
@@ -380,7 +384,7 @@ plt.title("Nombre d'accident par jour de la semaine");
 # It seems that the friday is the accident day
 
 
-# In[67]:
+# In[31]:
 
 
 # Initiating dataframe grouped by weekday
@@ -399,7 +403,7 @@ ax.set_xticklabels(['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi',
 # It seems that the gravity of accident is larger during the weekend compared to the week
 
 
-# In[154]:
+# In[32]:
 
 
 # data-management
@@ -415,7 +419,7 @@ fig.show()
 
 # ### Hour of the day
 
-# In[87]:
+# In[33]:
 
 
 sns.countplot(x=dfCarac['hour'], 
@@ -430,7 +434,7 @@ plt.hlines(y=len(dfCarac['hour'])/24, xmin=-0.5, xmax=23.5, color='blue', alpha=
 # At 7am, the number of accident drastically increase and really goes down after 8pm
 
 
-# In[50]:
+# In[34]:
 
 
 # Initiating dataframe grouped by hour
@@ -449,7 +453,7 @@ sns.barplot(x="hour", y="percentage", hue="grav", data=dfCaracGpByHour,
 # More than 5% gravity 2 during the night against less than 4% during full day
 
 
-# In[157]:
+# In[35]:
 
 
 # data-management
@@ -460,5 +464,151 @@ fig, ax = plt.subplots(1, 2, figsize=(10, 8))
 sns.heatmap(dfHourGrav, annot=True, cmap='cubehelix', ax=ax[0])
 sns.heatmap(dfHourGrav.div(dfHourGrav.max(axis=0), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
 fig.show()
-# Proposition: creating a full night variable [0-6am]
+# Proposition: creating a full night variable [0-6am] (yes/no)
+
+
+# ### Lum
+
+# In[74]:
+
+
+sns.countplot(x=dfCarac['lum'][(dfCarac['lum']!=-1)], 
+             palette=['#FF5D5D', '#5774B8', '#000000', '#000000', '#FDEC8B'])
+plt.title("Nombre d'accident par condition luminaire")
+plt.hlines(y=len(dfCarac['lum'][(dfCarac['lum']!=-1)])/5, xmin=-0.5, xmax=4.5, color='blue', alpha=0.4);
+# It seems that most accident happen during the full day
+
+
+# In[77]:
+
+
+# Initiating dataframe grouped by hour
+dfCaracGpByLum = (dfCarac[(dfCarac['lum']!=-1)].groupby(['lum'])['grav']
+                     .value_counts(normalize=True)
+                     .rename('percentage')
+                     .mul(100)
+                     .reset_index()
+                     .sort_values('grav'))
+
+# Display plotx
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(x="lum", y="percentage", hue="grav", data=dfCaracGpByLum, 
+             palette=['#F45050','#F4B650','#C8C8C8']);
+# Wow, it seems that the gravity of accidents is worst during the night (22pm-6am)
+# More than 5% gravity 2 during the night against less than 4% during full day
+
+
+# In[97]:
+
+
+# data-management
+dfLumGrav = pd.crosstab(dfCarac['lum'][(dfCarac['lum']!=-1)], dfCarac['grav'][(dfCarac['lum']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+
+# Display plots
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+sns.heatmap(dfLumGrav, annot=True, cmap='cubehelix', ax=ax[0])
+sns.heatmap(dfLumGrav.div(dfLumGrav.max(axis=0), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
+fig.show()
+# The night without public lightning seems to have a drastic increase of gravity 2 and 3 accidents rate (10% and 44%)!
+# Then the two other cases where no much light is on have interesting gravity 2 increase accident rates
+
+
+# ### Atm
+
+# In[94]:
+
+
+sns.countplot(x=dfCarac['atm'][(dfCarac['atm']!=-1)], 
+             palette=['#8A8A8A', '#090F23', '#090F23', '#090F23', '#090F23', '#090F23', 
+                     '#090F23', '#090F23', '#090F23'])
+plt.title("Nombre d'accident par condition athmosphérique")
+plt.hlines(y=len(dfCarac['atm'][(dfCarac['atm']!=-1)])/8, xmin=-0.5, xmax=8.5, color='blue', alpha=0.4);
+# It seems that most accident happen with normal atmospheric conditions, then light rain
+
+
+# In[84]:
+
+
+# Initiating dataframe grouped by hour
+dfCaracGpByAtm = (dfCarac[(dfCarac['atm']!=-1)].groupby(['atm'])['grav']
+                     .value_counts(normalize=True)
+                     .rename('percentage')
+                     .mul(100)
+                     .reset_index()
+                     .sort_values('grav'))
+
+# Display plotx
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(x="atm", y="percentage", hue="grav", data=dfCaracGpByAtm, 
+             palette=['#F45050','#F4B650','#C8C8C8']);
+# Wow, it seems that the gravity of accidents is worst during fog/smoke, strong wind/storm, dazzling weather and 'other'
+
+
+# In[96]:
+
+
+# data-management
+dfAtmGrav = pd.crosstab(dfCarac['atm'][(dfCarac['atm']!=-1)], dfCarac['grav'][(dfCarac['atm']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+
+# Display plots
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+sns.heatmap(dfAtmGrav, annot=True, cmap='cubehelix', ax=ax[0])
+sns.heatmap(dfAtmGrav.div(dfAtmGrav.max(axis=0), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
+fig.show()
+# These graphs confirm that both gravity 2 and 3 are increase for groups 5, 6, 7 and 9
+
+
+# ### Col
+
+# In[89]:
+
+
+sns.countplot(x=dfCarac['col'][(dfCarac['col']!=-1)], 
+             palette=['#090F23', '#090F23', '#090F23', '#090F23', '#090F23', '#090F23', '#090F23'])
+plt.title("Nombre d'accident par type de collision")
+plt.hlines(y=len(dfCarac['col'][(dfCarac['col']!=-1)])/7, xmin=-0.5, xmax=6.5, color='blue', alpha=0.4);
+# Other collision and by the side are the most counted
+# It is quite disturbing to see that the most filled class is the group 'other'
+# There is a feeling that this variable was not well defined or filled
+
+
+# In[90]:
+
+
+# Initiating dataframe grouped by hour
+dfCaracGpByCol = (dfCarac[(dfCarac['col']!=-1)].groupby(['col'])['grav']
+                     .value_counts(normalize=True)
+                     .rename('percentage')
+                     .mul(100)
+                     .reset_index()
+                     .sort_values('grav'))
+
+# Display plotx
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(x="col", y="percentage", hue="grav", data=dfCaracGpByCol, 
+             palette=['#F45050','#F4B650','#C8C8C8']);
+# Les groupes 2, 3 et 4 sont très peu impactés en termes de gravité alors que les groupes 1, 6 et 7 semblent impactants
+
+
+# In[95]:
+
+
+# data-management
+dfColGrav = pd.crosstab(dfCarac['col'][(dfCarac['col']!=-1)], dfCarac['grav'][(dfCarac['col']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+
+# Display plots
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+sns.heatmap(dfColGrav, annot=True, cmap='cubehelix', ax=ax[0])
+sns.heatmap(dfColGrav.div(dfColGrav.max(axis=0), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
+fig.show()
+# La collision de type 1 est celle qui maximise les accidents de gravité 3 avec un fort taux de gravité 2
+# Les collisions de type 6 et 7 sont celles qui maximisent les accidents de gravité 2
+
+
+# ### XXX
+
+# In[ ]:
+
+
+
 
