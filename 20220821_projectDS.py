@@ -10,7 +10,7 @@
 
 # # --------------------------------------Session--------------------------------------
 
-# In[ ]:
+# In[90]:
 
 
 # install modules
@@ -24,7 +24,7 @@ pip install dill
 python -m install dill
 
 
-# In[1]:
+# In[92]:
 
 
 # import modules
@@ -38,7 +38,7 @@ import dill
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[2]:
+# In[93]:
 
 
 ##### Defining directory
@@ -47,14 +47,14 @@ os.chdir('C:\\Users\\Megaport\\Desktop\\jupyterNotebook')
 os.getcwd()
 
 
-# In[3]:
+# In[5]:
 
 
 # import session
 dill.load_session('notebook_env.db')
 
 
-# In[98]:
+# In[94]:
 
 
 # save session
@@ -63,20 +63,20 @@ dill.dump_session('notebook_env.db')
 
 # # --------------------------------------Import--------------------------------------
 
-# In[7]:
+# In[20]:
 
 
 ##### Import of tables into dataframes
-dfLieux = pd.read_csv('20220817_table_lieux.csv', sep=',')
-dfUsagers = pd.read_csv('20220814_table_usagers.csv', sep=',')
-dfVehicules = pd.read_csv('20220817_table_vehicules.csv', sep=',')
-dfCarac = pd.read_csv('20220817_table_caracteristiques.csv', sep=',')
+dfLieux = pd.read_csv('20220906_table_lieux.csv', sep=',')
+dfUsagers = pd.read_csv('20220906_table_usagers.csv', sep=',')
+dfVehicules = pd.read_csv('20220906_table_vehicules.csv', sep=',')
+dfCarac = pd.read_csv('20220906_table_caracteristiques.csv', sep=',')
 
 ##### Merging of tables into 1 pooled dataframe
 # dfPool = pd.merge(dfLieux, dfUsagers, dfVehicules, dfCarac, on="Num_Acc")
 
 
-# In[8]:
+# In[21]:
 
 
 print('dfLieux dimensions:', dfLieux.shape)
@@ -88,7 +88,7 @@ print('dfCarac dimensions:', dfCarac.shape)
 
 # # --------------------------------------Data-management--------------------------------------
 
-# In[9]:
+# In[22]:
 
 
 # Computing date variable
@@ -110,8 +110,12 @@ dfCarac['hour'] = dfCarac['hrmn']//100
 # Year of accident
 dfCarac['year'] = dfCarac['date'].dt.year
 
+# Largeur de la route assignée au trafic
+dfLieux.larrout = dfLieux.larrout.replace('\,', '.', regex=True).astype('float64')
+dfLieux.lartpc = dfLieux.lartpc.replace('\,', '.', regex=True).astype('float64')
 
-# In[10]:
+
+# In[23]:
 
 
 dfCarac['date'].value_counts().sort_index()
@@ -194,7 +198,7 @@ dfLieux.head(3)
 dfLieux[['nbv', 'vosp', 'prof', 'pr', 'pr1', 'plan', 'lartpc', 'larrout', 'surf', 'infra', 'situ', 'env1']].describe()
 
 
-# In[16]:
+# In[5]:
 
 
 dfLieux.info()
@@ -225,7 +229,7 @@ print('situ:', len(dfLieux.situ.value_counts()))
 print('env1:', len(dfLieux.env1.value_counts()))
 
 
-# In[59]:
+# In[24]:
 
 
 # Values by variable
@@ -275,7 +279,7 @@ dfVehicules.head(3)
 
 # ### Graphs
 
-# In[22]:
+# In[25]:
 
 
 # Gravity variable in Carac dataframe
@@ -283,7 +287,7 @@ pd.DataFrame({'prop':dfCarac.grav.value_counts(normalize=True),
               'count':dfCarac.grav.value_counts()})
 
 
-# In[23]:
+# In[26]:
 
 
 # Gravity variable in Lieux dataframe
@@ -297,7 +301,7 @@ pd.DataFrame({'prop':dfLieux.grav.value_counts(normalize=True),
 
 # ### Year
 
-# In[73]:
+# In[51]:
 
 
 # Display plots
@@ -310,7 +314,7 @@ plt.title("Nombre d'accident par année");
 # The number of accident seemed to be stable between 2013 and 2019
 
 
-# In[25]:
+# In[52]:
 
 
 # Initiating dataframe grouped by month
@@ -324,15 +328,15 @@ dfCaracGpByYear = (dfCarac.groupby(['year'])['grav']
 # Display plotx
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="year", y="percentage", hue="grav", data=dfCaracGpByYear, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # It seems that the gravity is less important during 2018 to 2020
 
 
-# In[47]:
+# In[70]:
 
 
 # data-management
-dfYearGrav = pd.crosstab(dfCarac['year'], dfCarac['grav'], normalize=0).sort_values(by=2, ascending=False)
+dfYearGrav = pd.crosstab(dfCarac['year'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 4))
@@ -345,7 +349,7 @@ fig.show()
 
 # ### Months
 
-# In[72]:
+# In[54]:
 
 
 # Display plots
@@ -362,7 +366,7 @@ plt.title("Nombre d'accident par mois");
 # On peut observer que le mois de février compte le moins d'accidents mais il comporte aussi 28 jours
 
 
-# In[28]:
+# In[55]:
 
 
 # Initiating dataframe grouped by month
@@ -376,15 +380,15 @@ dfCaracGpByMonth = (dfCarac.groupby(['mois'])['grav']
 # Display plotx
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="mois", y="percentage", hue="grav", data=dfCaracGpByMonth, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # It seems that the gravity of accident is larger during the weekend compared to the week
 
 
-# In[46]:
+# In[71]:
 
 
 # data-management
-dfMonthGrav = pd.crosstab(dfCarac['mois'], dfCarac['grav'], normalize=0).sort_values(by=2, ascending=False)
+dfMonthGrav = pd.crosstab(dfCarac['mois'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 4))
@@ -396,7 +400,7 @@ fig.show()
 
 # ### Month day
 
-# In[29]:
+# In[60]:
 
 
 plt.figure(figsize=(20, 5))
@@ -406,7 +410,7 @@ plt.title("Nombre d'accident par jour du mois");
 # With no surprise, day 31 has twice as less accidents as other days of the month because it only occurs 1 months out of 2
 
 
-# In[31]:
+# In[61]:
 
 
 # Initiating dataframe grouped by weekday
@@ -420,15 +424,15 @@ dfCaracGpByMonthday = (dfCarac.groupby(['jour'])['grav']
 # Display plotx
 fig, ax = plt.subplots(figsize=(20, 4))
 sns.barplot(x="jour", y="percentage", hue="grav", data=dfCaracGpByMonthday, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # Hard to read this figure but no trend seems to be seen
 
 
-# In[45]:
+# In[72]:
 
 
 # data-management
-dfMonthdayGrav = pd.crosstab(dfCarac['jour'], dfCarac['grav'], normalize=0).sort_values(by=2, ascending=False)
+dfMonthdayGrav = pd.crosstab(dfCarac['jour'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 8))
@@ -440,7 +444,7 @@ fig.show()
 
 # ### Weekday
 
-# In[30]:
+# In[63]:
 
 
 sns.countplot(x=dfCarac['weekday'], 
@@ -451,7 +455,7 @@ plt.title("Nombre d'accident par jour de la semaine");
 # It seems that the friday is the accident day
 
 
-# In[31]:
+# In[64]:
 
 
 # Initiating dataframe grouped by weekday
@@ -465,16 +469,16 @@ dfCaracGpByWeekday = (dfCarac.groupby(['weekday'])['grav']
 # Display plotx
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="weekday", y="percentage", hue="grav", data=dfCaracGpByWeekday, 
-             palette=['#F45050','#F4B650','#C8C8C8'])
+             palette=['#C8C8C8','#F4B650','#F45050'])
 ax.set_xticklabels(['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']);
 # It seems that the gravity of accident is larger during the weekend compared to the week
 
 
-# In[44]:
+# In[74]:
 
 
 # data-management
-dfWeekdayGrav = pd.crosstab(dfCarac['weekday'], dfCarac['grav'], normalize=0).sort_values(by=2, ascending=False)
+dfWeekdayGrav = pd.crosstab(dfCarac['weekday'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 4))
@@ -486,7 +490,7 @@ fig.show()
 
 # ### Hour of the day
 
-# In[33]:
+# In[75]:
 
 
 sns.countplot(x=dfCarac['hour'], 
@@ -501,7 +505,7 @@ plt.hlines(y=len(dfCarac['hour'])/24, xmin=-0.5, xmax=23.5, color='blue', alpha=
 # At 7am, the number of accident drastically increase and really goes down after 8pm
 
 
-# In[34]:
+# In[33]:
 
 
 # Initiating dataframe grouped by hour
@@ -515,16 +519,16 @@ dfCaracGpByHour = (dfCarac.groupby(['hour'])['grav']
 # Display plotx
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="hour", y="percentage", hue="grav", data=dfCaracGpByHour, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # Wow, it seems that the gravity of accidents is worst during the night (22pm-6am)
 # More than 5% gravity 2 during the night against less than 4% during full day
 
 
-# In[43]:
+# In[76]:
 
 
 # data-management
-dfHourGrav = pd.crosstab(dfCarac['hour'], dfCarac['grav'], normalize=0).sort_values(by=2, ascending=False)
+dfHourGrav = pd.crosstab(dfCarac['hour'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 8))
@@ -546,7 +550,7 @@ plt.hlines(y=len(dfCarac['lum'][(dfCarac['lum']!=-1)])/5, xmin=-0.5, xmax=4.5, c
 # It seems that most accident happen during the full day
 
 
-# In[77]:
+# In[34]:
 
 
 # Initiating dataframe grouped by hour
@@ -560,16 +564,16 @@ dfCaracGpByLum = (dfCarac[(dfCarac['lum']!=-1)].groupby(['lum'])['grav']
 # Display plotx
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="lum", y="percentage", hue="grav", data=dfCaracGpByLum, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # Wow, it seems that the gravity of accidents is worst during the night (22pm-6am)
 # More than 5% gravity 2 during the night against less than 4% during full day
 
 
-# In[42]:
+# In[77]:
 
 
 # data-management
-dfLumGrav = pd.crosstab(dfCarac['lum'][(dfCarac['lum']!=-1)], dfCarac['grav'][(dfCarac['lum']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+dfLumGrav = pd.crosstab(dfCarac['lum'][(dfCarac['lum']!=-1)], dfCarac['grav'][(dfCarac['lum']!=-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -593,7 +597,7 @@ plt.hlines(y=len(dfCarac['atm'][(dfCarac['atm']!=-1)])/9, xmin=-0.5, xmax=8.5, c
 # It seems that most accident happen with normal atmospheric conditions, then light rain
 
 
-# In[84]:
+# In[35]:
 
 
 # Initiating dataframe grouped by hour
@@ -607,15 +611,15 @@ dfCaracGpByAtm = (dfCarac[(dfCarac['atm']!=-1)].groupby(['atm'])['grav']
 # Display plotx
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="atm", y="percentage", hue="grav", data=dfCaracGpByAtm, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # Wow, it seems that the gravity of accidents is worst during fog/smoke, strong wind/storm, dazzling weather and 'other'
 
 
-# In[41]:
+# In[78]:
 
 
 # data-management
-dfAtmGrav = pd.crosstab(dfCarac['atm'][(dfCarac['atm']!=-1)], dfCarac['grav'][(dfCarac['atm']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+dfAtmGrav = pd.crosstab(dfCarac['atm'][(dfCarac['atm']!=-1)], dfCarac['grav'][(dfCarac['atm']!=-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -639,7 +643,7 @@ plt.hlines(y=len(dfCarac['col'][(dfCarac['col']!=-1)])/7, xmin=-0.5, xmax=6.5, c
 # There is a feeling that this variable was not well defined or filled
 
 
-# In[90]:
+# In[36]:
 
 
 # Initiating dataframe grouped by hour
@@ -653,15 +657,15 @@ dfCaracGpByCol = (dfCarac[(dfCarac['col']!=-1)].groupby(['col'])['grav']
 # Display plotx
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="col", y="percentage", hue="grav", data=dfCaracGpByCol, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # Les groupes 2, 3 et 4 sont très peu impactés en termes de gravité alors que les groupes 1, 6 et 7 semblent impactants
 
 
-# In[40]:
+# In[79]:
 
 
 # data-management
-dfColGrav = pd.crosstab(dfCarac['col'][(dfCarac['col']!=-1)], dfCarac['grav'][(dfCarac['col']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+dfColGrav = pd.crosstab(dfCarac['col'][(dfCarac['col']!=-1)], dfCarac['grav'][(dfCarac['col']!=-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -670,15 +674,6 @@ sns.heatmap(dfColGrav.apply(lambda x: x/dfCarac['grav'][(dfCarac['col']!=-1)].va
 fig.show()
 # La collision de type 1 est celle qui maximise les accidents de gravité 3 avec un fort taux de gravité 2
 # Les collisions de type 6 et 7 sont celles qui maximisent les accidents de gravité 2
-
-
-# In[57]:
-
-
-# To update
-for i in np.arange(1, 8):
-    plt.plot(dfColGrav.div(dfColGrav.max(axis=0), axis=1).loc[i], label=i)
-plt.legend();
 
 
 # ### nbv
@@ -698,10 +693,10 @@ plt.hlines(y=len(dfLieux['nbv'][(dfLieux.nbv<7) & (dfLieux.nbv>-1)])/7, xmin=-0.
 # Many accidents when there are 2 route tracks
 
 
-# In[88]:
+# In[37]:
 
 
-# Initiating dataframe grouped by hour
+# Initiating dataframe grouped
 dfCaracGpByNbv = (dfLieux[(dfLieux.nbv<7) & (dfLieux.nbv>-1)].groupby(['nbv'])['grav']
                      .value_counts(normalize=True)
                      .rename('percentage')
@@ -712,15 +707,15 @@ dfCaracGpByNbv = (dfLieux[(dfLieux.nbv<7) & (dfLieux.nbv>-1)].groupby(['nbv'])['
 # Display plotx
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="nbv", y="percentage", hue="grav", data=dfCaracGpByNbv, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # Les groupes 0 et 2 semblent avoir un taux élevé d'accidents gravité 2 et 3
 
 
-# In[50]:
+# In[80]:
 
 
 # data-management
-dfNbvGrav = pd.crosstab(dfLieux.nbv[(dfLieux.nbv<7) & (dfLieux.nbv>-1)], dfCarac['grav'][(dfLieux.nbv<7) & (dfLieux.nbv>-1)], normalize=0).sort_values(by=2, ascending=False)
+dfNbvGrav = pd.crosstab(dfLieux.nbv[(dfLieux.nbv<7) & (dfLieux.nbv>-1)], dfCarac['grav'][(dfLieux.nbv<7) & (dfLieux.nbv>-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -732,10 +727,10 @@ fig.show()
 
 # ### vosp
 
-# In[60]:
+# In[88]:
 
 
-dfLieux.vosp[(dfLieux.vosp>-1)].value_counts()
+dfLieux.vosp[(dfLieux.vosp>-1)].value_counts(normalize=True)
 
 
 # In[56]:
@@ -747,7 +742,7 @@ plt.hlines(y=len(dfLieux['vosp'][(dfLieux.vosp>-1)])/4, xmin=-0.5, xmax=3.5, col
 # Many accidents when there are no additional reserved track
 
 
-# In[103]:
+# In[38]:
 
 
 # Initiating dataframe grouped
@@ -761,15 +756,15 @@ dfCaracGpByVosp = (dfLieux[(dfLieux.vosp>-1)].groupby(['vosp'])['grav']
 # Display plot
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="vosp", y="percentage", hue="grav", data=dfCaracGpByVosp, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # XXX
 
 
-# In[111]:
+# In[81]:
 
 
 # data-management
-dfVospGrav = pd.crosstab(dfLieux['vosp'][(dfLieux['vosp']!=-1)], dfLieux['grav'][(dfLieux['vosp']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+dfVospGrav = pd.crosstab(dfLieux['vosp'][(dfLieux['vosp']!=-1)], dfLieux['grav'][(dfLieux['vosp']!=-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -796,7 +791,7 @@ plt.hlines(y=len(dfLieux['prof'][(dfLieux.prof>-1)])/5, xmin=-0.5, xmax=4.5, col
 # Many accidents when there is a dish track
 
 
-# In[104]:
+# In[39]:
 
 
 # Initiating dataframe grouped
@@ -810,15 +805,15 @@ dfCaracGpByProf = (dfLieux[(dfLieux.prof>-1)].groupby(['prof'])['grav']
 # Display plot
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="prof", y="percentage", hue="grav", data=dfCaracGpByProf, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # XXX
 
 
-# In[112]:
+# In[82]:
 
 
 # data-management
-dfProfGrav = pd.crosstab(dfLieux['prof'][(dfLieux['prof']!=-1)], dfLieux['grav'][(dfLieux['prof']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+dfProfGrav = pd.crosstab(dfLieux['prof'][(dfLieux['prof']!=-1)], dfLieux['grav'][(dfLieux['prof']!=-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -845,7 +840,7 @@ plt.hlines(y=len(dfLieux['plan'][(dfLieux.plan>-1)])/5, xmin=-0.5, xmax=4.5, col
 # Many accidents when there are straight part
 
 
-# In[105]:
+# In[40]:
 
 
 # Initiating dataframe grouped
@@ -859,15 +854,15 @@ dfCaracGpByPlan = (dfLieux[(dfLieux.plan>-1)].groupby(['plan'])['grav']
 # Display plot
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="plan", y="percentage", hue="grav", data=dfCaracGpByPlan, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # XXX
 
 
-# In[114]:
+# In[83]:
 
 
 # data-management
-dfPlanGrav = pd.crosstab(dfLieux['plan'][(dfLieux['plan']!=-1)], dfLieux['grav'][(dfLieux['plan']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+dfPlanGrav = pd.crosstab(dfLieux['plan'][(dfLieux['plan']!=-1)], dfLieux['grav'][(dfLieux['plan']!=-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -877,88 +872,67 @@ fig.show()
 # XXX
 
 
-# ### pr
-
-# In[70]:
-
-
-# cat
-dfLieux.pr
-
-
-# In[132]:
-
-
-print(type(dfLieux.pr1))
-
-
-# ### pr1
-
-# In[152]:
-
-
-#num
-# plt.hist(dfLieux.pr1.dropna(), bins=5, rwidth=0.5, orientation='horizontal')
-# Boxplots by gravity level
-# sns.catplot(y='pr1', x='grav', data=dfLieux, kind='box')
-# sns.catplot(y='pr1', x='grav', data=dfLieux, kind='box')
-# plt.yscale('log');
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
 # ### lartpc
 
-# In[141]:
+# In[7]:
 
 
-#num
-dfLieux.lartpc
-sns.kdeplot(dfLieux['lartpc'], shade=True)
+dfLieux['lartpc'].describe()
 
 
-# In[ ]:
+# In[10]:
 
 
+# Display distributions
+fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+sns.kdeplot(dfLieux['lartpc'], shade=True, ax=ax[0])
+sns.kdeplot(dfLieux['lartpc'][(dfLieux['lartpc']<20)], shade=True, ax=ax[1])
+sns.kdeplot(dfLieux['lartpc'][(dfLieux['lartpc']<20) & (dfLieux['lartpc']>0)], shade=True, ax=ax[2]);
+print('mean=', round(dfLieux.lartpc.mean()))
+print('mean=', round(dfLieux.lartpc[(dfLieux['lartpc']<20)].mean()))
+# There are mainly 0 values and values around a mean of 5m but values around 15, 10 and 5 (mean of 1 when outliers removed)
 
 
+# In[41]:
 
-# In[150]:
 
-
-# dfLieux['larrout'].astype('numerical')
+# Distribution by gravity
+sns.kdeplot(
+   data=dfLieux[(dfLieux['lartpc']<20) & (dfLieux['lartpc']>0)], x="lartpc", hue="grav",
+   fill=True, common_norm=False, palette=['#C8C8C8','#F4B650','#F45050'],
+   alpha=.5, linewidth=2,
+);
 
 
 # ### larrout
 
-# In[151]:
+# In[91]:
 
 
-#num
-# dfLieux.larrout
-# sns.kdeplot(dfLieux['larrout'], shade=True)
+dfLieux.larrout[(dfLieux.larrout>-1)].describe()
 
 
-# In[ ]:
+# In[100]:
 
 
+# Display distributions
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+sns.kdeplot(dfLieux.larrout[(dfLieux.larrout>-1)], shade=True, ax=ax[0])
+sns.kdeplot(dfLieux.larrout[(dfLieux.larrout>-1) & (dfLieux.larrout<250)], shade=True, ax=ax[1]);
+print('mean=', round(dfLieux.larrout[(dfLieux.larrout>-1)].mean()))
+print('mean=', round(dfLieux.larrout[(dfLieux.larrout>-1) & (dfLieux.larrout<250)].mean()))
+# It seems that most values are 0 and a mean around 58m (54m without outliers)
 
 
-
-# In[ ]:
-
+# In[42]:
 
 
+# Distribution by gravity
+sns.kdeplot(
+   data=dfLieux[(dfLieux.larrout>-1) & (dfLieux.larrout<250)], x="larrout", hue="grav",
+   fill=True, common_norm=False, palette=['#C8C8C8','#F4B650','#F45050'],
+   alpha=.5, linewidth=2,
+);
 
 
 # ### surf
@@ -979,7 +953,7 @@ plt.hlines(y=len(dfLieux['surf'][(dfLieux.vosp>-1)])/10, xmin=-0.5, xmax=9.5, co
 # Many accidents when there is normal or wet meteo
 
 
-# In[106]:
+# In[43]:
 
 
 # Initiating dataframe grouped
@@ -993,15 +967,15 @@ dfCaracGpBySurf = (dfLieux[(dfLieux.surf>-1)].groupby(['surf'])['grav']
 # Display plot
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="surf", y="percentage", hue="grav", data=dfCaracGpBySurf, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # XXX
 
 
-# In[115]:
+# In[84]:
 
 
 # data-management
-dfSurfGrav = pd.crosstab(dfLieux['surf'][(dfLieux['surf']!=-1)], dfLieux['grav'][(dfLieux['surf']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+dfSurfGrav = pd.crosstab(dfLieux['surf'][(dfLieux['surf']!=-1)], dfLieux['grav'][(dfLieux['surf']!=-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1029,7 +1003,7 @@ plt.hlines(y=len(dfLieux['infra'][(dfLieux.infra>-1)])/10, xmin=-0.5, xmax=9.5, 
 # Many accidents when there are no additional infrastructures
 
 
-# In[107]:
+# In[44]:
 
 
 # Initiating dataframe grouped
@@ -1043,15 +1017,15 @@ dfCaracGpByInfra = (dfLieux[(dfLieux.infra>-1)].groupby(['infra'])['grav']
 # Display plot
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="infra", y="percentage", hue="grav", data=dfCaracGpByInfra, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # XXX
 
 
-# In[116]:
+# In[85]:
 
 
 # data-management
-dfInfraGrav = pd.crosstab(dfLieux['infra'][(dfLieux['infra']!=-1)], dfLieux['grav'][(dfLieux['infra']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+dfInfraGrav = pd.crosstab(dfLieux['infra'][(dfLieux['infra']!=-1)], dfLieux['grav'][(dfLieux['infra']!=-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1079,7 +1053,7 @@ plt.hlines(y=len(dfLieux['situ'][(dfLieux.situ>-1)])/8, xmin=-0.5, xmax=7.5, col
 # Many accidents happen on the road
 
 
-# In[108]:
+# In[45]:
 
 
 # Initiating dataframe grouped
@@ -1093,15 +1067,15 @@ dfCaracGpBySitu = (dfLieux[(dfLieux.situ>-1)].groupby(['situ'])['grav']
 # Display plot
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="situ", y="percentage", hue="grav", data=dfCaracGpBySitu, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # XXX
 
 
-# In[117]:
+# In[86]:
 
 
 # data-management
-dfSituGrav = pd.crosstab(dfLieux['situ'][(dfLieux['situ']!=-1)], dfLieux['grav'][(dfLieux['situ']!=-1)], normalize=0).sort_values(by=2, ascending=False)
+dfSituGrav = pd.crosstab(dfLieux['situ'][(dfLieux['situ']!=-1)], dfLieux['grav'][(dfLieux['situ']!=-1)], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1109,6 +1083,30 @@ sns.heatmap(dfSituGrav, annot=True, cmap='cubehelix', ax=ax[0])
 sns.heatmap(dfSituGrav.apply(lambda x: x/dfLieux['grav'][(dfLieux['situ']!=-1)].value_counts(normalize=True), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
 fig.show()
 # XXX
+
+
+# In[48]:
+
+
+plt.plot(dfSituGrav.apply(lambda x: x/dfLieux['grav'][(dfLieux['situ']!=-1)].value_counts(normalize=True), axis=1)[4], 'o', color='#F45050')
+plt.plot(dfSituGrav.apply(lambda x: x/dfLieux['grav'][(dfLieux['situ']!=-1)].value_counts(normalize=True), axis=1)[3], 'o', color='#F4B650')
+plt.plot(dfSituGrav.apply(lambda x: x/dfLieux['grav'][(dfLieux['situ']!=-1)].value_counts(normalize=True), axis=1)[2], 'o', color='#C8C8C8')
+plt.axhline(y=1, color='k', linestyle='--');
+
+
+# In[49]:
+
+
+# Data-management
+dfSituGravFold = dfSituGrav.apply(lambda x: x/dfLieux['grav'][(dfLieux['situ']!=-1)].value_counts(normalize=True), axis=1).stack().reset_index()
+
+# Rename columns
+dfSituGravFold.rename(columns={'level_1':'grav', 0:'fold'}, inplace=True)
+
+# Display plot
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(x='situ', y='fold', hue='grav', data=dfSituGravFold, 
+             palette=['#C8C8C8','#F4B650','#F45050']);
 
 
 # ### env1
@@ -1129,7 +1127,7 @@ plt.hlines(y=len(dfLieux['env1'])/3, xmin=-0.5, xmax=2.5, color='blue', alpha=0.
 # Many accidents happen when there are no school near
 
 
-# In[109]:
+# In[50]:
 
 
 # Initiating dataframe grouped
@@ -1143,15 +1141,15 @@ dfCaracGpByEnv1 = (dfLieux.groupby(['env1'])['grav']
 # Display plot
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="env1", y="percentage", hue="grav", data=dfCaracGpByEnv1, 
-             palette=['#F45050','#F4B650','#C8C8C8']);
+             palette=['#C8C8C8','#F4B650','#F45050']);
 # XXX
 
 
-# In[149]:
+# In[87]:
 
 
 # data-management
-dfEnv1Grav = pd.crosstab(dfLieux['env1'], dfLieux['grav'], normalize=0).sort_values(by=2, ascending=False)
+dfEnv1Grav = pd.crosstab(dfLieux['env1'], dfLieux['grav'], normalize=0).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
