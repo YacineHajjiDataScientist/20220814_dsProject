@@ -10,7 +10,7 @@
 
 # # --------------------------------------Session--------------------------------------
 
-# In[90]:
+# In[6]:
 
 
 # install modules
@@ -24,7 +24,7 @@ pip install dill
 python -m install dill
 
 
-# In[92]:
+# In[2]:
 
 
 # import modules
@@ -38,7 +38,7 @@ import dill
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[93]:
+# In[3]:
 
 
 ##### Defining directory
@@ -47,14 +47,14 @@ os.chdir('C:\\Users\\Megaport\\Desktop\\jupyterNotebook')
 os.getcwd()
 
 
-# In[5]:
+# In[4]:
 
 
 # import session
 dill.load_session('notebook_env.db')
 
 
-# In[94]:
+# In[60]:
 
 
 # save session
@@ -63,7 +63,7 @@ dill.dump_session('notebook_env.db')
 
 # # --------------------------------------Import--------------------------------------
 
-# In[20]:
+# In[10]:
 
 
 ##### Import of tables into dataframes
@@ -76,7 +76,7 @@ dfCarac = pd.read_csv('20220906_table_caracteristiques.csv', sep=',')
 # dfPool = pd.merge(dfLieux, dfUsagers, dfVehicules, dfCarac, on="Num_Acc")
 
 
-# In[21]:
+# In[11]:
 
 
 print('dfLieux dimensions:', dfLieux.shape)
@@ -88,7 +88,7 @@ print('dfCarac dimensions:', dfCarac.shape)
 
 # # --------------------------------------Data-management--------------------------------------
 
-# In[22]:
+# In[12]:
 
 
 # Computing date variable
@@ -269,6 +269,13 @@ dfLieux[['vosp', 'prof', 'plan', 'surf', 'infra', 'situ', 'env1', 'grav']].hist(
 dfUsagers.head(3)
 
 
+# In[14]:
+
+
+### Proportion of NA by variable
+dfUsagers.isnull().sum() * 100 / len(dfUsagers)
+
+
 # ##### -Table Vehicles-
 
 # In[21]:
@@ -279,7 +286,7 @@ dfVehicules.head(3)
 
 # ### Graphs
 
-# In[25]:
+# In[5]:
 
 
 # Gravity variable in Carac dataframe
@@ -674,6 +681,133 @@ sns.heatmap(dfColGrav.apply(lambda x: x/dfCarac['grav'][(dfCarac['col']!=-1)].va
 fig.show()
 # La collision de type 1 est celle qui maximise les accidents de gravité 3 avec un fort taux de gravité 2
 # Les collisions de type 6 et 7 sont celles qui maximisent les accidents de gravité 2
+
+
+# ### Date
+
+# In[40]:
+
+
+# Initiating variable
+varDate = dfCarac.date.value_counts().sort_index()
+
+# Display plot
+plt.figure(figsize=(20, 5))
+plt.plot(varDate.index, varDate, color='#CE5E7D')
+plt.axhline(y=varDate.mean(), color='k', linestyle='--')
+plt.title('Number of accident through the time')
+plt.ylim([0, 400]);
+
+
+# In[46]:
+
+
+# Initiating variables
+varDateGrav2 = dfCarac[(dfCarac.grav==2)].date.value_counts().sort_index()
+varDateGrav3 = dfCarac[(dfCarac.grav==3)].date.value_counts().sort_index()
+varDateGrav4 = dfCarac[(dfCarac.grav==4)].date.value_counts().sort_index()
+
+# Display plots by gravity
+plt.figure(figsize=(20, 5))
+plt.subplot(131)
+plt.plot(varDateGrav2.index, varDateGrav2, color='#C8C8C8')
+plt.axhline(y=varDateGrav2.mean(), color='k', linestyle='--')
+plt.title('Number of accident through the time (gravity 2)')
+plt.ylim([0, 250]);
+plt.subplot(132)
+plt.plot(varDateGrav3.index, varDateGrav3, color='#F4B650')
+plt.axhline(y=varDateGrav3.mean(), color='k', linestyle='--')
+plt.title('Number of accident through the time (gravity 3)')
+plt.ylim([0, 175]);
+plt.subplot(133)
+plt.plot(varDateGrav4.index, varDateGrav4, color='#F45050')
+plt.axhline(y=varDateGrav4.mean(), color='k', linestyle='--')
+plt.title('Number of accident through the time (gravity 4)')
+plt.ylim([0, 35]);
+
+
+# In[ ]:
+
+
+# Initiating folds
+dfDateGrav = pd.crosstab(dfCarac['date'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
+dfDateGravLambda = dfDateGrav.apply(lambda x: x/dfCarac['grav'].value_counts(normalize=True), axis=1)
+dfDateGravLambdaGrav2 = dfDateGravLambda[2].sort_index()
+dfDateGravLambdaGrav3 = dfDateGravLambda[3].sort_index()
+dfDateGravLambdaGrav4 = dfDateGravLambda[4].sort_index()
+
+
+# In[56]:
+
+
+# Display folds by gravity
+plt.figure(figsize=(20, 5))
+plt.subplot(131)
+plt.plot(dfDateGravLambdaGrav2.index, dfDateGravLambdaGrav2, color='#C8C8C8')
+plt.axhline(y=dfDateGravLambdaGrav2.mean(), color='k', linestyle='--')
+plt.title('Fold of gravity 2 accidents')
+plt.ylim([0, 5]);
+plt.subplot(132)
+plt.plot(dfDateGravLambdaGrav3.index, dfDateGravLambdaGrav3, color='#F4B650')
+plt.axhline(y=dfDateGravLambdaGrav3.mean(), color='k', linestyle='--')
+plt.title('Fold of gravity 3 accidents')
+plt.ylim([0, 5]);
+plt.subplot(133)
+plt.plot(dfDateGravLambdaGrav4.index, dfDateGravLambdaGrav4, color='#F45050')
+plt.axhline(y=dfDateGravLambdaGrav4.mean(), color='k', linestyle='--')
+plt.title('Fold of gravity 4 accidents')
+plt.ylim([0, 5]);
+# There is a clear time-related event impacting gravity 4 accidents
+
+
+# ### Agg
+
+# In[39]:
+
+
+print(dfCarac['agg'].value_counts())
+print(dfCarac['agg'].value_counts(normalize=True))
+
+
+# In[35]:
+
+
+sns.countplot(x=dfCarac['agg'], color='grey')
+plt.title("Nombre d'accident en agglo/hors agglo")
+plt.hlines(y=len(dfCarac['agg'])/2, xmin=-0.5, xmax=1.5, color='blue', alpha=0.4);
+# Many accidents when there are 2 route tracks
+
+
+# In[36]:
+
+
+# Initiating dataframe grouped
+dfCaracGpByAgg = (dfCarac.groupby(['agg'])['grav']
+                     .value_counts(normalize=True)
+                     .rename('percentage')
+                     .mul(100)
+                     .reset_index()
+                     .sort_values('grav'))
+
+# Display plotx
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(x="agg", y="percentage", hue="grav", data=dfCaracGpByAgg, 
+             palette=['#C8C8C8','#F4B650','#F45050']);
+# Les accidents semblent plus graves hors agglomération
+
+
+# In[38]:
+
+
+# data-management
+dfAggGrav = pd.crosstab(dfCarac['agg'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
+
+# Display plots
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+sns.heatmap(dfAggGrav, annot=True, cmap='cubehelix', ax=ax[0])
+sns.heatmap(dfAggGrav.apply(lambda x: x/dfCarac['grav'].value_counts(normalize=True), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
+fig.show()
+# 2 fois plus d'accidents de gravité 2 hors agglomération
 
 
 # ### nbv
@@ -1159,62 +1293,169 @@ fig.show()
 # XXX
 
 
-# ### XXX
+# ### catu
 
-# In[ ]:
-
-
+# In[18]:
 
 
-
-# In[ ]:
-
+dfUsagers.catu.value_counts(normalize=True)
 
 
+# In[50]:
 
 
-# In[ ]:
+sns.countplot(x=dfUsagers.catu, color='grey')
+plt.title("Nombre d'accident par présence d'école à proximité")
+plt.hlines(y=len(dfUsagers['catu'])/4, xmin=-0.5, xmax=3.5, color='blue', alpha=0.4);
+# XXX
 
 
+# In[39]:
 
 
+# Initiating dataframe grouped
+dfUsagersGpByCatu = (dfUsagers.groupby(['catu'])['grav2']
+                     .value_counts(normalize=True)
+                     .rename('percentage')
+                     .mul(100)
+                     .reset_index()
+                     .sort_values('grav2'))
 
-# ### XXX
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
+# Display plot
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(x="catu", y="percentage", hue="grav2", data=dfUsagersGpByCatu, 
+             palette=['grey', '#C8C8C8', '#F4B650', '#F45050']);
+# Les piétons semblent avoir plus d'hospitalisations
+# Les piétons pedestres semblent avoir plus d'accidents de gravité 4
 
 
+# In[41]:
 
 
+# data-management
+dfCatuGrav = pd.crosstab(dfUsagers['catu'], dfUsagers['grav2'], normalize=0).sort_values(by=4, ascending=False)
 
-# ### XXX
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
+# Display plots
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+sns.heatmap(dfCatuGrav, annot=True, cmap='cubehelix', ax=ax[0])
+sns.heatmap(dfCatuGrav.apply(lambda x: x/dfUsagers['grav2'].value_counts(normalize=True), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
+fig.show()
+# XXX
 
 
+# ### grav
+
+# In[17]:
 
 
-# In[ ]:
+dfUsagers.grav.value_counts(normalize=True)
 
 
+# In[31]:
 
+
+sns.countplot(x=dfUsagers.grav2, palette=['grey', '#C8C8C8', '#F4B650', '#F45050'])
+plt.title("Gravité de l'accident de chaque victime")
+plt.hlines(y=len(dfUsagers['grav'])/4, xmin=-0.5, xmax=3.5, color='blue', alpha=0.4)
+plt.xticks(ticks=np.arange(0, 4, 1), labels=['indemne', 'léger', 'hospitalisé', 'tué'])
+plt.xlabel('Gravité accident');
+# Cette variable devrait être présentée
+
+
+# ### sex
+
+# In[16]:
+
+
+dfUsagers.sexe.value_counts(normalize=True)
+
+
+# In[36]:
+
+
+sns.countplot(x=dfUsagers.sexe, color='grey')
+plt.title("Nombre d'accident par présence d'école à proximité")
+plt.hlines(y=len(dfUsagers['sexe'])/2, xmin=-0.5, xmax=1.5, color='blue', alpha=0.4);
+# XXX
+
+
+# In[34]:
+
+
+# Initiating dataframe grouped
+dfUsagersGpBySexe = (dfUsagers.groupby(['sexe'])['grav2']
+                     .value_counts(normalize=True)
+                     .rename('percentage')
+                     .mul(100)
+                     .reset_index()
+                     .sort_values('grav2'))
+
+# Display plot
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(x="sexe", y="percentage", hue="grav2", data=dfUsagersGpBySexe, 
+             palette=['grey', '#C8C8C8', '#F4B650', '#F45050']);
+# Plus de tués chez les hommes mais plus de blessés indemnes également, paradoxalement
+
+
+# In[51]:
+
+
+# data-management
+dfSexeGrav = pd.crosstab(dfUsagers['sexe'], dfUsagers['grav2'], normalize=0).sort_values(by=4, ascending=False)
+
+# Display plots
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+sns.heatmap(dfSexeGrav, annot=True, cmap='cubehelix', ax=ax[0])
+sns.heatmap(dfSexeGrav.apply(lambda x: x/dfUsagers['grav2'].value_counts(normalize=True), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
+fig.show()
+# XXX
+
+
+# ### trajet
+
+# In[19]:
+
+
+dfUsagers.trajet.value_counts(normalize=True)
+
+
+# In[45]:
+
+
+sns.countplot(x=dfUsagers.trajet[(dfUsagers.trajet>0)], color='grey')
+plt.title("Nombre d'accident par présence d'école à proximité")
+plt.hlines(y=len(dfUsagers['trajet'][(dfUsagers.trajet>0)])/6, xmin=-0.5, xmax=5.5, color='blue', alpha=0.4);
+# XXX
+
+
+# In[47]:
+
+
+# Initiating dataframe grouped
+dfUsagersGpByTrajet = (dfUsagers[(dfUsagers.trajet>0)].groupby(['trajet'])['grav2']
+                     .value_counts(normalize=True)
+                     .rename('percentage')
+                     .mul(100)
+                     .reset_index()
+                     .sort_values('grav2'))
+
+# Display plot
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(x="trajet", y="percentage", hue="grav2", data=dfUsagersGpByTrajet, 
+             palette=['grey', '#C8C8C8', '#F4B650', '#F45050']);
+# Plus de tués chez les hommes mais plus de blessés indemnes également, paradoxalement
+
+
+# In[49]:
+
+
+# data-management
+dfTrajetGrav = pd.crosstab(dfUsagers['trajet'][(dfUsagers.trajet>0)], dfUsagers['grav2'][(dfUsagers.trajet>0)], normalize=0).sort_values(by=4, ascending=False)
+
+# Display plots
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+sns.heatmap(dfTrajetGrav, annot=True, cmap='cubehelix', ax=ax[0])
+sns.heatmap(dfTrajetGrav.apply(lambda x: x/dfUsagers['grav2'][(dfUsagers.trajet>0)].value_counts(normalize=True), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
+fig.show()
+# XXX
 
