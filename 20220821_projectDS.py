@@ -24,7 +24,7 @@ pip install dill
 python -m install dill
 
 
-# In[2]:
+# In[50]:
 
 
 # import modules
@@ -34,8 +34,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import dill
+from scipy.stats import pearsonr
+import math
+from scipy.stats import chi2_contingency
 
 get_ipython().run_line_magic('matplotlib', 'inline')
+
+
+# In[14]:
+
+
+# functions
+def V_cramer(tab, n):
+    # Initiating objects
+    nrow, ncol = tab.shape
+    resultats_test = chi2_contingency(tab)
+    statistique = resultats_test[0]
+    # Computing objects
+    r = ncol - (((ncol - 1) **  2) / (n - 1))
+    k = nrow - (((nrow - 1) **  2) / (n - 1))
+    phi_squared = max(0, ((statistique / n) - (((ncol - 1) * (nrow - 1)) / (n - 1))))
+    V = math.sqrt((phi_squared / (min(k - 1, r - 1))))
+    return V
 
 
 # In[3]:
@@ -339,11 +359,12 @@ sns.barplot(x="year", y="percentage", hue="grav", data=dfCaracGpByYear,
 # It seems that the gravity is less important during 2018 to 2020
 
 
-# In[70]:
+# In[91]:
 
 
 # data-management
 dfYearGrav = pd.crosstab(dfCarac['year'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
+dfYearGravRaw = pd.crosstab(dfCarac['year'], dfCarac['grav']).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 4))
@@ -391,11 +412,12 @@ sns.barplot(x="mois", y="percentage", hue="grav", data=dfCaracGpByMonth,
 # It seems that the gravity of accident is larger during the weekend compared to the week
 
 
-# In[71]:
+# In[92]:
 
 
 # data-management
 dfMonthGrav = pd.crosstab(dfCarac['mois'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
+dfMonthGravRaw = pd.crosstab(dfCarac['mois'], dfCarac['grav']).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 4))
@@ -435,11 +457,12 @@ sns.barplot(x="jour", y="percentage", hue="grav", data=dfCaracGpByMonthday,
 # Hard to read this figure but no trend seems to be seen
 
 
-# In[72]:
+# In[93]:
 
 
 # data-management
 dfMonthdayGrav = pd.crosstab(dfCarac['jour'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
+dfMonthdayGravRaw = pd.crosstab(dfCarac['jour'], dfCarac['grav']).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 8))
@@ -481,11 +504,12 @@ ax.set_xticklabels(['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi',
 # It seems that the gravity of accident is larger during the weekend compared to the week
 
 
-# In[74]:
+# In[94]:
 
 
 # data-management
 dfWeekdayGrav = pd.crosstab(dfCarac['weekday'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
+dfWeekdayGravRaw = pd.crosstab(dfCarac['weekday'], dfCarac['grav']).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 4))
@@ -531,11 +555,12 @@ sns.barplot(x="hour", y="percentage", hue="grav", data=dfCaracGpByHour,
 # More than 5% gravity 2 during the night against less than 4% during full day
 
 
-# In[76]:
+# In[95]:
 
 
 # data-management
 dfHourGrav = pd.crosstab(dfCarac['hour'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
+dfHourGravRaw = pd.crosstab(dfCarac['hour'], dfCarac['grav']).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 8))
@@ -576,11 +601,12 @@ sns.barplot(x="lum", y="percentage", hue="grav", data=dfCaracGpByLum,
 # More than 5% gravity 2 during the night against less than 4% during full day
 
 
-# In[77]:
+# In[96]:
 
 
 # data-management
 dfLumGrav = pd.crosstab(dfCarac['lum'][(dfCarac['lum']!=-1)], dfCarac['grav'][(dfCarac['lum']!=-1)], normalize=0).sort_values(by=4, ascending=False)
+dfLumGravRaw = pd.crosstab(dfCarac['lum'][(dfCarac['lum']!=-1)], dfCarac['grav'][(dfCarac['lum']!=-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -622,11 +648,12 @@ sns.barplot(x="atm", y="percentage", hue="grav", data=dfCaracGpByAtm,
 # Wow, it seems that the gravity of accidents is worst during fog/smoke, strong wind/storm, dazzling weather and 'other'
 
 
-# In[78]:
+# In[97]:
 
 
 # data-management
 dfAtmGrav = pd.crosstab(dfCarac['atm'][(dfCarac['atm']!=-1)], dfCarac['grav'][(dfCarac['atm']!=-1)], normalize=0).sort_values(by=4, ascending=False)
+dfAtmGravRaw = pd.crosstab(dfCarac['atm'][(dfCarac['atm']!=-1)], dfCarac['grav'][(dfCarac['atm']!=-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -668,11 +695,12 @@ sns.barplot(x="col", y="percentage", hue="grav", data=dfCaracGpByCol,
 # Les groupes 2, 3 et 4 sont très peu impactés en termes de gravité alors que les groupes 1, 6 et 7 semblent impactants
 
 
-# In[79]:
+# In[98]:
 
 
 # data-management
 dfColGrav = pd.crosstab(dfCarac['col'][(dfCarac['col']!=-1)], dfCarac['grav'][(dfCarac['col']!=-1)], normalize=0).sort_values(by=4, ascending=False)
+dfColGravRaw = pd.crosstab(dfCarac['col'][(dfCarac['col']!=-1)], dfCarac['grav'][(dfCarac['col']!=-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -697,6 +725,19 @@ plt.plot(varDate.index, varDate, color='#CE5E7D')
 plt.axhline(y=varDate.mean(), color='k', linestyle='--')
 plt.title('Number of accident through the time')
 plt.ylim([0, 400]);
+
+
+# In[41]:
+
+
+# Distribution nombre d'accidents par gravité
+plt.boxplot([varDateGrav2, varDateGrav3, varDateGrav4])
+plt.xticks(ticks=[1, 2, 3], labels=['2', '3', '4']);
+
+# Mean accidents by gravity
+print(varDateGrav2.mean())
+print(varDateGrav3.mean())
+print(varDateGrav4.mean())
 
 
 # In[46]:
@@ -760,6 +801,13 @@ plt.ylim([0, 5]);
 # There is a clear time-related event impacting gravity 4 accidents
 
 
+# In[42]:
+
+
+# Distribution analysis
+sns.kdeplot(varDate, shade=True);
+
+
 # ### Agg
 
 # In[39]:
@@ -796,11 +844,12 @@ sns.barplot(x="agg", y="percentage", hue="grav", data=dfCaracGpByAgg,
 # Les accidents semblent plus graves hors agglomération
 
 
-# In[38]:
+# In[126]:
 
 
 # data-management
 dfAggGrav = pd.crosstab(dfCarac['agg'], dfCarac['grav'], normalize=0).sort_values(by=4, ascending=False)
+dfAggGravRaw = pd.crosstab(dfCarac['agg'], dfCarac['grav']).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -845,11 +894,12 @@ sns.barplot(x="nbv", y="percentage", hue="grav", data=dfCaracGpByNbv,
 # Les groupes 0 et 2 semblent avoir un taux élevé d'accidents gravité 2 et 3
 
 
-# In[80]:
+# In[99]:
 
 
 # data-management
 dfNbvGrav = pd.crosstab(dfLieux.nbv[(dfLieux.nbv<7) & (dfLieux.nbv>-1)], dfCarac['grav'][(dfLieux.nbv<7) & (dfLieux.nbv>-1)], normalize=0).sort_values(by=4, ascending=False)
+dfNbvGravRaw = pd.crosstab(dfLieux.nbv[(dfLieux.nbv<7) & (dfLieux.nbv>-1)], dfCarac['grav'][(dfLieux.nbv<7) & (dfLieux.nbv>-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -894,11 +944,12 @@ sns.barplot(x="vosp", y="percentage", hue="grav", data=dfCaracGpByVosp,
 # XXX
 
 
-# In[81]:
+# In[100]:
 
 
 # data-management
 dfVospGrav = pd.crosstab(dfLieux['vosp'][(dfLieux['vosp']!=-1)], dfLieux['grav'][(dfLieux['vosp']!=-1)], normalize=0).sort_values(by=4, ascending=False)
+dfVospGravRaw = pd.crosstab(dfLieux['vosp'][(dfLieux['vosp']!=-1)], dfLieux['grav'][(dfLieux['vosp']!=-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -943,11 +994,12 @@ sns.barplot(x="prof", y="percentage", hue="grav", data=dfCaracGpByProf,
 # XXX
 
 
-# In[82]:
+# In[101]:
 
 
 # data-management
 dfProfGrav = pd.crosstab(dfLieux['prof'][(dfLieux['prof']!=-1)], dfLieux['grav'][(dfLieux['prof']!=-1)], normalize=0).sort_values(by=4, ascending=False)
+dfProfGravRaw = pd.crosstab(dfLieux['prof'][(dfLieux['prof']!=-1)], dfLieux['grav'][(dfLieux['prof']!=-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -992,11 +1044,12 @@ sns.barplot(x="plan", y="percentage", hue="grav", data=dfCaracGpByPlan,
 # XXX
 
 
-# In[83]:
+# In[102]:
 
 
 # data-management
 dfPlanGrav = pd.crosstab(dfLieux['plan'][(dfLieux['plan']!=-1)], dfLieux['grav'][(dfLieux['plan']!=-1)], normalize=0).sort_values(by=4, ascending=False)
+dfPlanGravRaw = pd.crosstab(dfLieux['plan'][(dfLieux['plan']!=-1)], dfLieux['grav'][(dfLieux['plan']!=-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1105,11 +1158,12 @@ sns.barplot(x="surf", y="percentage", hue="grav", data=dfCaracGpBySurf,
 # XXX
 
 
-# In[84]:
+# In[103]:
 
 
 # data-management
 dfSurfGrav = pd.crosstab(dfLieux['surf'][(dfLieux['surf']!=-1)], dfLieux['grav'][(dfLieux['surf']!=-1)], normalize=0).sort_values(by=4, ascending=False)
+dfSurfGravRaw = pd.crosstab(dfLieux['surf'][(dfLieux['surf']!=-1)], dfLieux['grav'][(dfLieux['surf']!=-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1155,11 +1209,12 @@ sns.barplot(x="infra", y="percentage", hue="grav", data=dfCaracGpByInfra,
 # XXX
 
 
-# In[85]:
+# In[104]:
 
 
 # data-management
 dfInfraGrav = pd.crosstab(dfLieux['infra'][(dfLieux['infra']!=-1)], dfLieux['grav'][(dfLieux['infra']!=-1)], normalize=0).sort_values(by=4, ascending=False)
+dfInfraGravRaw = pd.crosstab(dfLieux['infra'][(dfLieux['infra']!=-1)], dfLieux['grav'][(dfLieux['infra']!=-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1205,11 +1260,12 @@ sns.barplot(x="situ", y="percentage", hue="grav", data=dfCaracGpBySitu,
 # XXX
 
 
-# In[86]:
+# In[105]:
 
 
 # data-management
 dfSituGrav = pd.crosstab(dfLieux['situ'][(dfLieux['situ']!=-1)], dfLieux['grav'][(dfLieux['situ']!=-1)], normalize=0).sort_values(by=4, ascending=False)
+dfSituGravRaw = pd.crosstab(dfLieux['situ'][(dfLieux['situ']!=-1)], dfLieux['grav'][(dfLieux['situ']!=-1)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1279,11 +1335,12 @@ sns.barplot(x="env1", y="percentage", hue="grav", data=dfCaracGpByEnv1,
 # XXX
 
 
-# In[87]:
+# In[106]:
 
 
 # data-management
 dfEnv1Grav = pd.crosstab(dfLieux['env1'], dfLieux['grav'], normalize=0).sort_values(by=4, ascending=False)
+dfEnv1GravRaw = pd.crosstab(dfLieux['env1'], dfLieux['grav']).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1329,11 +1386,12 @@ sns.barplot(x="catu", y="percentage", hue="grav2", data=dfUsagersGpByCatu,
 # Les piétons pedestres semblent avoir plus d'accidents de gravité 4
 
 
-# In[41]:
+# In[107]:
 
 
 # data-management
 dfCatuGrav = pd.crosstab(dfUsagers['catu'], dfUsagers['grav2'], normalize=0).sort_values(by=4, ascending=False)
+dfCatuGravRaw = pd.crosstab(dfUsagers['catu'], dfUsagers['grav2']).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1397,11 +1455,12 @@ sns.barplot(x="sexe", y="percentage", hue="grav2", data=dfUsagersGpBySexe,
 # Plus de tués chez les hommes mais plus de blessés indemnes également, paradoxalement
 
 
-# In[51]:
+# In[108]:
 
 
 # data-management
 dfSexeGrav = pd.crosstab(dfUsagers['sexe'], dfUsagers['grav2'], normalize=0).sort_values(by=4, ascending=False)
+dfSexeGravRaw = pd.crosstab(dfUsagers['sexe'], dfUsagers['grav2']).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1446,11 +1505,12 @@ sns.barplot(x="trajet", y="percentage", hue="grav2", data=dfUsagersGpByTrajet,
 # Plus de tués chez les hommes mais plus de blessés indemnes également, paradoxalement
 
 
-# In[49]:
+# In[109]:
 
 
 # data-management
 dfTrajetGrav = pd.crosstab(dfUsagers['trajet'][(dfUsagers.trajet>0)], dfUsagers['grav2'][(dfUsagers.trajet>0)], normalize=0).sort_values(by=4, ascending=False)
+dfTrajetGravRaw = pd.crosstab(dfUsagers['trajet'][(dfUsagers.trajet>0)], dfUsagers['grav2'][(dfUsagers.trajet>0)]).sort_values(by=4, ascending=False)
 
 # Display plots
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -1458,4 +1518,47 @@ sns.heatmap(dfTrajetGrav, annot=True, cmap='cubehelix', ax=ax[0])
 sns.heatmap(dfTrajetGrav.apply(lambda x: x/dfUsagers['grav2'][(dfUsagers.trajet>0)].value_counts(normalize=True), axis=1), annot=True, cmap='magma_r', ax=ax[1]);
 fig.show()
 # XXX
+
+
+# ### Inferential analysis
+
+# In[124]:
+
+
+dfCarac['mois']
+
+
+# In[131]:
+
+
+### V Cramer score & p-value
+# Function
+def vCramerChisqPvalue(varname, var, contingtableRaw):
+    res = varname, round(V_cramer(contingtableRaw, len(var)), 2), round(chi2_contingency(contingtableRaw)[1], 4)
+    return res
+
+# Filling table
+dfVcramerChisqPvalue = pd.DataFrame([vCramerChisqPvalue('an', dfCarac['an'], dfYearGravRaw), 
+              vCramerChisqPvalue('mois', dfCarac['mois'], dfMonthGravRaw), 
+              vCramerChisqPvalue('jour', dfCarac['jour'], dfMonthdayGravRaw), 
+              vCramerChisqPvalue('weekday', dfCarac['weekday'], dfWeekdayGravRaw), 
+              vCramerChisqPvalue('hour', dfCarac['hour'], dfHourGravRaw), 
+              vCramerChisqPvalue('lum', dfCarac['lum'], dfLumGravRaw), 
+              vCramerChisqPvalue('atm', dfCarac['atm'], dfAtmGravRaw), 
+              vCramerChisqPvalue('col', dfCarac['col'], dfColGravRaw), 
+              vCramerChisqPvalue('agg', dfCarac['agg'], dfAggGravRaw), 
+              vCramerChisqPvalue('nbv', dfLieux['nbv'], dfNbvGravRaw), 
+              vCramerChisqPvalue('vosp', dfLieux['vosp'], dfVospGravRaw), 
+              vCramerChisqPvalue('prof', dfLieux['prof'], dfProfGravRaw), 
+              vCramerChisqPvalue('plan', dfLieux['plan'], dfPlanGravRaw), 
+              vCramerChisqPvalue('surf', dfLieux['surf'], dfSurfGravRaw), 
+              vCramerChisqPvalue('infra', dfLieux['infra'], dfInfraGravRaw), 
+              vCramerChisqPvalue('situ', dfLieux['situ'], dfSituGravRaw), 
+              vCramerChisqPvalue('env1', dfLieux['env1'], dfEnv1GravRaw), 
+              vCramerChisqPvalue('catu', dfUsagers['catu'], dfCatuGravRaw), 
+              vCramerChisqPvalue('sexe', dfUsagers['sexe'], dfSexeGravRaw), 
+              vCramerChisqPvalue('trajet', dfUsagers['trajet'], dfTrajetGravRaw)])
+
+# Display table
+dfVcramerChisqPvalue.sort_values(by=1, ascending=False)
 
