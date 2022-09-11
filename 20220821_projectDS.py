@@ -24,7 +24,7 @@ pip install dill
 python -m install dill
 
 
-# In[1]:
+# In[3]:
 
 
 # import modules
@@ -41,7 +41,7 @@ from scipy.stats import chi2_contingency
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[2]:
+# In[4]:
 
 
 # functions
@@ -58,7 +58,7 @@ def V_cramer(tab, n):
     return V
 
 
-# In[3]:
+# In[5]:
 
 
 ##### Defining directory
@@ -67,7 +67,7 @@ os.chdir('C:\\Users\\Megaport\\Desktop\\jupyterNotebook')
 os.getcwd()
 
 
-# In[4]:
+# In[6]:
 
 
 # import session
@@ -1588,12 +1588,6 @@ fig.show()
 
 # ### Inferential analysis
 
-# In[124]:
-
-
-dfCarac['mois']
-
-
 # In[102]:
 
 
@@ -1675,4 +1669,22 @@ sns.heatmap(resMatrixUsagers, ax=ax[2]);
 print(resMatrixCarac)
 print(resMatrixLieux)
 print(resMatrixUsagers)
+
+
+# In[56]:
+
+
+# Proportions
+print(dfUsagers.grav2.value_counts(normalize=True))
+print(dfCarac.grav.value_counts(normalize=True))
+
+# Display plot
+plt.figure(figsize=(10, 5))
+plt.bar([1, 2, 3, 4], dfUsagers.grav2.value_counts(normalize=True), label='Exemple 1', color=['grey', '#C8C8C8', '#F4B650', '#F45050'])
+plt.bar([6, 7, 8], dfCarac.grav.value_counts(normalize=True), label='Exemple 2', color=['#C8C8C8', '#F4B650', '#F45050'])
+plt.ylim([0, 0.6])
+plt.xticks(ticks=np.arange(1, 9, 1), labels=['indemne', 'léger', 'hospitalisé', 'tué', 'indemne', 'léger', 'hospitalisé', 'tué'])
+plt.title('Gravité des accidents, avant vs après avoir raffiné la variable')
+plt.text(2, 0.5, 'Avant', weight='bold', fontsize=20)
+plt.text(6, 0.5, 'Après', weight='bold', fontsize=20);
 
