@@ -24,7 +24,7 @@ pip install dill
 python -m install dill
 
 
-# In[50]:
+# In[1]:
 
 
 # import modules
@@ -41,7 +41,7 @@ from scipy.stats import chi2_contingency
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[14]:
+# In[2]:
 
 
 # functions
@@ -74,7 +74,7 @@ os.getcwd()
 dill.load_session('notebook_env.db')
 
 
-# In[60]:
+# In[115]:
 
 
 # save session
@@ -1080,15 +1080,45 @@ print('mean=', round(dfLieux.lartpc[(dfLieux['lartpc']<20)].mean()))
 # There are mainly 0 values and values around a mean of 5m but values around 15, 10 and 5 (mean of 1 when outliers removed)
 
 
-# In[41]:
+# In[25]:
 
 
 # Distribution by gravity
 sns.kdeplot(
    data=dfLieux[(dfLieux['lartpc']<20) & (dfLieux['lartpc']>0)], x="lartpc", hue="grav",
    fill=True, common_norm=False, palette=['#C8C8C8','#F4B650','#F45050'],
-   alpha=.5, linewidth=2,
+   alpha=.5, linewidth=2
 );
+
+
+# In[36]:
+
+
+sns.kdeplot(
+   data=dfLieux[(dfLieux['lartpc']<20) & (dfLieux['lartpc']>0) & (dfLieux['grav']==2)], x="lartpc",
+   fill=True, common_norm=False, color=['#C8C8C8'],
+   alpha=.5, linewidth=2)
+plt.ylim(0, 0.6);
+
+
+# In[37]:
+
+
+sns.kdeplot(
+   data=dfLieux[(dfLieux['lartpc']<20) & (dfLieux['lartpc']>0) & (dfLieux['grav']==3)], x="lartpc",
+   fill=True, common_norm=False, color=['#F4B650'],
+   alpha=.5, linewidth=2)
+plt.ylim(0, 0.6);
+
+
+# In[39]:
+
+
+sns.kdeplot(
+   data=dfLieux[(dfLieux['lartpc']<20) & (dfLieux['lartpc']>0) & (dfLieux['grav']==4)], x="lartpc",
+   fill=True, common_norm=False, color=['#F45050'],
+   alpha=.5, linewidth=2)
+plt.ylim(0, 0.6);
 
 
 # ### larrout
@@ -1120,6 +1150,36 @@ sns.kdeplot(
    fill=True, common_norm=False, palette=['#C8C8C8','#F4B650','#F45050'],
    alpha=.5, linewidth=2,
 );
+
+
+# In[49]:
+
+
+sns.kdeplot(
+   data=dfLieux[(dfLieux.larrout>-1) & (dfLieux.larrout<250) & (dfLieux.grav==2)], x="larrout", hue="grav",
+   fill=True, common_norm=False, palette=['#C8C8C8'],
+   alpha=.5, linewidth=2)
+plt.ylim(0, 0.04);
+
+
+# In[51]:
+
+
+sns.kdeplot(
+   data=dfLieux[(dfLieux.larrout>-1) & (dfLieux.larrout<250) & (dfLieux.grav==3)], x="larrout", hue="grav",
+   fill=True, common_norm=False, palette=['#F4B650'],
+   alpha=.5, linewidth=2)
+plt.ylim(0, 0.04);
+
+
+# In[50]:
+
+
+sns.kdeplot(
+   data=dfLieux[(dfLieux.larrout>-1) & (dfLieux.larrout<250) & (dfLieux.grav==4)], x="larrout", hue="grav",
+   fill=True, common_norm=False, palette=['#F45050'],
+   alpha=.5, linewidth=2)
+plt.ylim(0, 0.04);
 
 
 # ### surf
@@ -1352,6 +1412,12 @@ fig.show()
 
 # ### catu
 
+# In[53]:
+
+
+dfUsagers.grav.value_counts(normalize=True)
+
+
 # In[18]:
 
 
@@ -1420,7 +1486,7 @@ plt.xlabel('Gravité accident');
 # Cette variable devrait être présentée
 
 
-# ### sex
+# ### sexe
 
 # In[16]:
 
@@ -1528,7 +1594,7 @@ fig.show()
 dfCarac['mois']
 
 
-# In[131]:
+# In[102]:
 
 
 ### V Cramer score & p-value
@@ -1538,7 +1604,7 @@ def vCramerChisqPvalue(varname, var, contingtableRaw):
     return res
 
 # Filling table
-dfVcramerChisqPvalue = pd.DataFrame([vCramerChisqPvalue('an', dfCarac['an'], dfYearGravRaw), 
+dfVcramerChisqPvalue = pd.DataFrame([vCramerChisqPvalue('year', dfCarac['year'], dfYearGravRaw), 
               vCramerChisqPvalue('mois', dfCarac['mois'], dfMonthGravRaw), 
               vCramerChisqPvalue('jour', dfCarac['jour'], dfMonthdayGravRaw), 
               vCramerChisqPvalue('weekday', dfCarac['weekday'], dfWeekdayGravRaw), 
@@ -1558,7 +1624,55 @@ dfVcramerChisqPvalue = pd.DataFrame([vCramerChisqPvalue('an', dfCarac['an'], dfY
               vCramerChisqPvalue('catu', dfUsagers['catu'], dfCatuGravRaw), 
               vCramerChisqPvalue('sexe', dfUsagers['sexe'], dfSexeGravRaw), 
               vCramerChisqPvalue('trajet', dfUsagers['trajet'], dfTrajetGravRaw)])
+dfVcramerChisqPvalue = dfVcramerChisqPvalue.rename({0:'Variable', 1:'V Cramer', 2:'pvalue'}, axis=1)
 
 # Display table
-dfVcramerChisqPvalue.sort_values(by=1, ascending=False)
+dfVcramerChisqPvalue.sort_values(by='V Cramer', ascending=False)
+# dfVcramerChisqPvalue
+
+
+# In[113]:
+
+
+##### Vcramer between variables
+### Initiating objects
+varList1Carac = ['year', 'mois', 'jour', 'weekday', 'hour', 'lum', 'atm', 'col', 'agg', 'int']
+varList2Carac = ['year', 'mois', 'jour', 'weekday', 'hour', 'lum', 'atm', 'col', 'agg', 'int']
+varList1Lieux = ['catr', 'circ', 'nbv', 'vosp', 'prof', 'plan', 'surf', 'infra', 'situ', 'env1']
+varList2Lieux = ['catr', 'circ', 'nbv', 'vosp', 'prof', 'plan', 'surf', 'infra', 'situ', 'env1']
+varList1Usagers = ['place', 'catu', 'sexe', 'trajet', 'secu', 'locp', 'actp', 'etatp']
+varList2Usagers = ['place', 'catu', 'sexe', 'trajet', 'secu', 'locp', 'actp', 'etatp']
+resMatrixCarac = pd.DataFrame(np.zeros(shape=(len(varList1Carac), len(varList2Carac))), index=varList1Carac, columns=varList2Carac)
+resMatrixLieux = pd.DataFrame(np.zeros(shape=(len(varList1Lieux), len(varList2Lieux))), index=varList1Lieux, columns=varList2Lieux)
+resMatrixUsagers = pd.DataFrame(np.zeros(shape=(len(varList1Usagers), len(varList2Usagers))), index=varList1Usagers, columns=varList2Usagers)
+
+### Filling dataframe (Carac)
+for i in varList1Carac:
+    for j in varList2Carac:
+        tab = pd.crosstab(dfCarac[i], dfCarac[j])
+        resMatrixCarac[j][i] = round(V_cramer(tab, tab.sum().sum()), 2)
+### Filling dataframe (Lieux)
+for i in varList1Lieux:
+    for j in varList2Lieux:
+        tab = pd.crosstab(dfLieux[i], dfLieux[j])
+        resMatrixLieux[j][i] = round(V_cramer(tab, tab.sum().sum()), 2)
+### Filling dataframe (Usagers)
+for i in varList1Usagers:
+    for j in varList2Usagers:
+        tab = pd.crosstab(dfUsagers[i], dfUsagers[j])
+        resMatrixUsagers[j][i] = round(V_cramer(tab, tab.sum().sum()), 2)
+
+
+# In[114]:
+
+
+# Display VCramer dataframe
+fig, ax = plt.subplots(1, 3, figsize=(20, 5))
+sns.heatmap(resMatrixCarac, ax=ax[0])
+sns.heatmap(resMatrixLieux, ax=ax[1])
+sns.heatmap(resMatrixUsagers, ax=ax[2]);
+
+print(resMatrixCarac)
+print(resMatrixLieux)
+print(resMatrixUsagers)
 
