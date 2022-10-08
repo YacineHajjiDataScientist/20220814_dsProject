@@ -3,10 +3,12 @@
 
 # # To do
 
-# + fill template
-# + plot distribution of numeric variables
-# + compute V cramer and R² of each variable
-# + plot ordered V cramer and R² of each variable
+# + complete template with variables update completion
+# + Start encoding variables
+# + Merger les bases
+# + VCramer on merged dataset
+# + Faire un modèle basique
+# + Parmi les variables gardées, faire une relation entre celles qui sont fortement liées dans la base de données finale (e.g. node features graph)
 
 # # --------------------------------------Session--------------------------------------
 
@@ -24,7 +26,7 @@ pip install dill
 python -m install dill
 
 
-# In[3]:
+# In[1]:
 
 
 # import modules
@@ -41,7 +43,7 @@ from scipy.stats import chi2_contingency
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[4]:
+# In[2]:
 
 
 # functions
@@ -58,7 +60,7 @@ def V_cramer(tab, n):
     return V
 
 
-# In[5]:
+# In[3]:
 
 
 ##### Defining directory
@@ -67,14 +69,14 @@ os.chdir('C:\\Users\\Megaport\\Desktop\\jupyterNotebook')
 os.getcwd()
 
 
-# In[6]:
+# In[4]:
 
 
 # import session
 dill.load_session('notebook_env.db')
 
 
-# In[115]:
+# In[143]:
 
 
 # save session
@@ -83,7 +85,7 @@ dill.dump_session('notebook_env.db')
 
 # # --------------------------------------Import--------------------------------------
 
-# In[10]:
+# In[5]:
 
 
 ##### Import of tables into dataframes
@@ -96,7 +98,7 @@ dfCarac = pd.read_csv('20220906_table_caracteristiques.csv', sep=',')
 # dfPool = pd.merge(dfLieux, dfUsagers, dfVehicules, dfCarac, on="Num_Acc")
 
 
-# In[11]:
+# In[6]:
 
 
 print('dfLieux dimensions:', dfLieux.shape)
@@ -108,7 +110,9 @@ print('dfCarac dimensions:', dfCarac.shape)
 
 # # --------------------------------------Data-management--------------------------------------
 
-# In[12]:
+# ##### Computing new variables
+
+# In[7]:
 
 
 # Computing date variable
@@ -135,16 +139,121 @@ dfLieux.larrout = dfLieux.larrout.replace('\,', '.', regex=True).astype('float64
 dfLieux.lartpc = dfLieux.lartpc.replace('\,', '.', regex=True).astype('float64')
 
 
-# In[23]:
+# ##### Refining variables before Merging datasets
+
+# In[156]:
 
 
-dfCarac['date'].value_counts().sort_index()
+### dfCarac
+# hourGrp: nuit (22h - 6h) - jour heures creuses (10h-16h) - jour heures de pointe (7-9h, 17-21h)
+hourConditions = [((dfCarac["hour"]>=22) | (dfCarac["hour"]<=6)),
+                  (((dfCarac["hour"]>=7) & (dfCarac["hour"]<=9)) | ((dfCarac["hour"]>=17) & (dfCarac["hour"]<=21))),
+                  ((dfCarac["hour"]>=10) | (dfCarac["hour"]<=16))]
+hourChoices = ["nuit", "heure de pointe", "journee"]
+dfCarac["hourGrp"] = np.select(hourConditions, hourChoices)
+# atm: passer en NA les valeurs -1 et 9 (other) qui sont difficilement interprétables dans un modèle de ML
+dfCarac['atm'] = dfCarac['atm'].replace([-1, 9], [np.nan, np.nan])
+
+### dfLieux
+# nbvGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
+nbvConditions = [((dfLieux["nbv"]>=9) | (dfLieux["nbv"]==-1)),
+                (dfLieux["nbv"]==0),
+                (dfLieux["nbv"]==1),
+                (dfLieux["nbv"]==2),
+                (dfLieux["nbv"]==3),
+                (dfLieux["nbv"]>=4),]
+nbvChoices = [np.nan, '0', '1', '2', '3', '4+']
+dfLieux['nbvGrp'] = np.select(nbvConditions, nbvChoices)
+# vostGrp: présence yes/no d'une voie réservée
+dfLieux['vospGrp'] = dfLieux['vosp'].replace([-1, 0, 1, 2, 3], [np.nan, 0, 1, 1, 1])
+# profGrp: -1 et 0 en NA
+dfLieux['prof'] = dfLieux['prof'].replace([-1, 0], [np.nan, np.nan])
+# planGrp: en binaire not straight vs straight (yes/no), les -1 et 0 en NA
+dfLieux['planGrp'] = dfLieux['plan'].replace([-1, 0, 1, 2, 3, 4], [np.nan, np.nan, 0, 1, 1, 1])
+# lartpcGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
+lartpcConditions = [((dfLieux["lartpc"]==0.0)),
+                    ((dfLieux["lartpc"]>=20)),
+                    ((dfLieux["lartpc"]>0) & (dfLieux["lartpc"]<5)),
+                    ((dfLieux["lartpc"]>=5) & (dfLieux["lartpc"]<10)),
+                    ((dfLieux["lartpc"]>=10) & (dfLieux["lartpc"]<15)),
+                    ((dfLieux["lartpc"]>=15) & (dfLieux["lartpc"]<20))]
+lartpcChoices = [np.nan, np.nan, 1, 2, 3, 4]
+dfLieux['lartpcGrp'] = np.select(lartpcConditions, lartpcChoices)
+dfLieux['lartpcGrp'] = dfLieux['lartpcGrp'].replace([0, 1, 2, 3, 4], [np.nan, '0-5', '5-10', '10-15', '15-20'])
+# larroutGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
+larroutConditions = [((dfLieux["larrout"]==0.0)),
+                    ((dfLieux["larrout"]>=200)),
+                    ((dfLieux["larrout"]>0) & (dfLieux["larrout"]<50)),
+                    ((dfLieux["larrout"]>=50) & (dfLieux["larrout"]<100)),
+                    ((dfLieux["larrout"]>=100) & (dfLieux["larrout"]<150)),
+                    ((dfLieux["larrout"]>=150) & (dfLieux["larrout"]<200))]
+larroutChoices = [np.nan, np.nan, 1, 2, 3, 4]
+dfLieux['larroutGrp'] = np.select(larroutConditions, larroutChoices)
+dfLieux['larroutGrp'] = dfLieux['larroutGrp'].replace([0, 1, 2, 3, 4], [np.nan, '0-50', '50-100', '100-150', '150-200'])
+
+# surf: transformation des -1, 0 et 9 en  NA
+dfLieux['surf'] = dfLieux['surf'].replace([-1, 0, 9], [np.nan, np.nan, np.nan])
+# situ: transformation des -1, 0 et 9 en  NA
+dfLieux['situ'] = dfLieux['situ'].replace([-1, 0], [np.nan, np.nan])
 
 
-# In[11]:
+
+### dfUsagers
+# Does a gravity of type X exist for an accident
+dfUsagers['grav4exists'] = np.where(dfUsagers.grav2==4, 1, 0)
+dfUsagers['grav3exists'] = np.where(dfUsagers.grav2==3, 1, 0)
+dfUsagers['grav2exists'] = np.where(dfUsagers.grav2==2, 1, 0)
+# Number of pietons in catu variable
+dfUsagers['catu_pieton_exists'] = np.where(((dfUsagers.catu==3) | (dfUsagers.catu==4)), 1, 0)
+# Number of men/women
+dfUsagers['sexe_male_exists'] = np.where((dfUsagers.sexe==1), 1, 0)
+dfUsagers['sexe_female_exists'] = np.where((dfUsagers.sexe==2), 1, 0)
+# Computeing all variables as 'is there at least one of'
+dfAtLeastOneByAccident = pd.DataFrame({
+                                      # even exists yes/no
+              'Num_Acc':  dfUsagers.groupby('Num_Acc')['grav4exists'].sum().index, 
+              'gravGrp_23_4': np.where(dfUsagers.groupby('Num_Acc')['grav4exists'].sum()>=1, 1, 0), 
+              'gravGrp_2_34': np.where(dfUsagers.groupby('Num_Acc')['grav3exists'].sum()>=1, 1, 0), 
+              'catu_pieton': np.where(dfUsagers.groupby('Num_Acc')['catu_pieton_exists'].sum()>=1, 1, 0), 
+              'sexe_male': np.where(dfUsagers.groupby('Num_Acc')['sexe_male_exists'].sum()>=1, 1, 0), 
+              'sexe_female': np.where(dfUsagers.groupby('Num_Acc')['sexe_female_exists'].sum()>=1, 1, 0), 
+    
+                                       # count variables
+              'nb_grav4_by_acc': dfUsagers.groupby('Num_Acc')['grav4exists'].sum(),
+              'nb_grav3_by_acc': dfUsagers.groupby('Num_Acc')['grav3exists'].sum(), 
+              'nb_catu_pieton': dfUsagers.groupby('Num_Acc')['catu_pieton_exists'].sum(), 
+              'nb_sexe_male': dfUsagers.groupby('Num_Acc')['sexe_male_exists'].sum(), 
+              'nb_sexe_female': dfUsagers.groupby('Num_Acc')['sexe_female_exists'].sum()})
 
 
-dfCarac['year'].value_counts().sort_index()
+# In[157]:
+
+
+print(dfAtLeastOneByAccident.sexe_male.value_counts())
+print(dfAtLeastOneByAccident.sexe_female.value_counts())
+
+
+# In[149]:
+
+
+dfAtLeastOneByAccident[(dfAtLeastOneByAccident.nb_catu_pieton>5)].head(20)
+
+
+# ##### Verification transformation variables (Quality Check)
+
+# In[159]:
+
+
+# pd.crosstab(dfCarac["hour"], dfCarac["hourGrp"])
+# dfCarac['atm'].value_counts()
+# pd.crosstab(dfLieux["nbv"], dfLieux["nbvGrp"])
+# pd.crosstab(dfLieux["vosp"], dfLieux["vospGrp"])
+# dfCarac['prof'].value_counts()
+# pd.crosstab(dfLieux["plan"], dfLieux["planGrp"])
+# dfCarac['surf'].value_counts()
+# dfCarac['situ'].value_counts()
+# dfLieux['lartpcGrp'].value_counts()
+# dfLieux['larroutGrp'].value_counts()
 
 
 # # --------------------------------------Descriptive statistics--------------------------------------
@@ -570,6 +679,45 @@ fig.show()
 # Proposition: creating a full night variable [0-6am] (yes/no)
 
 
+# In[141]:
+
+
+# Initiating gravity proportion of CCA hour variable
+propGrav = dfCarac['grav'].value_counts(normalize=True)
+
+# Initiating dataframe grouped by hour
+dfCaracGpByHour = (dfCarac.groupby(['hour'])['grav']
+                     .value_counts(normalize=True)
+                     .rename('percentage')
+                     .mul(100)
+                     .reset_index()
+                     .sort_values('grav'))
+
+# Display plots
+fig, ax = plt.subplots(1, 2, figsize=(18, 8))
+    # 1st plot
+sns.barplot(x="hour", y="percentage", hue="grav", data=dfCaracGpByHour, 
+             palette=['#C8C8C8','#F4B650','#F45050'], ax=ax[0])
+        # text outside the plot
+# ax[0].set_xticks(np.arange(0, 5, 1))
+# ax[0].set_xticklabels(['day', 'dawn', 'night\nwo light', 'night\nwi light not lit', 'night\n wi light lit'])
+ax[0].set_title('Gravité des accidents en fonction de l\'heure de la journée')
+ax[0].set_xlabel('Hour')
+ax[0].set_ylabel('%', rotation=0)
+        # adding horizontal overall proportion by gravity
+ax[0].axhline(y=propGrav.loc[2]*100, color='#C8C8C8', linestyle='--')
+ax[0].axhline(y=propGrav.loc[3]*100, color='#F4B650', linestyle='--')
+ax[0].axhline(y=propGrav.loc[4]*100, color='#F45050', linestyle='--')
+    # 2nd plot
+sns.heatmap(dfHourGrav.apply(lambda x: x/dfCarac['grav'].value_counts(normalize=True), axis=1), annot=True, cmap='magma_r', ax=ax[1])
+        # text outside the plot
+ax[1].set_xticks([0.5, 1.5, 2.5])
+ax[1].set_xticklabels(['léger', 'hostpitalisé', 'tué'])
+ax[1].set_title('Fold de gravité des accidents en fonction de l\'heure de la journée')
+ax[1].set_xlabel('')
+ax[1].set_ylabel('');
+
+
 # ### Lum
 
 # In[74]:
@@ -582,7 +730,7 @@ plt.hlines(y=len(dfCarac['lum'][(dfCarac['lum']!=-1)])/5, xmin=-0.5, xmax=4.5, c
 # It seems that most accident happen during the full day
 
 
-# In[34]:
+# In[75]:
 
 
 # Initiating dataframe grouped by hour
@@ -593,7 +741,7 @@ dfCaracGpByLum = (dfCarac[(dfCarac['lum']!=-1)].groupby(['lum'])['grav']
                      .reset_index()
                      .sort_values('grav'))
 
-# Display plotx
+# Display plots
 fig, ax = plt.subplots(figsize=(10, 4))
 sns.barplot(x="lum", y="percentage", hue="grav", data=dfCaracGpByLum, 
              palette=['#C8C8C8','#F4B650','#F45050']);
@@ -615,6 +763,47 @@ sns.heatmap(dfLumGrav.apply(lambda x: x/dfCarac['grav'][(dfCarac['lum']!=-1)].va
 fig.show()
 # The night without public lightning seems to have a drastic increase of gravity 2 and 3 accidents rate (10% and 44%)!
 # Then the two other cases where no much light is on have interesting gravity 2 increase accident rates
+
+
+# In[136]:
+
+
+# Initiating gravity proportion of CCA lum variable
+propGrav = dfCarac['grav'][(dfCarac['lum']!=-1)].value_counts(normalize=True)
+
+# Initiating dataframe grouped by hour
+dfCaracGpByLum = (dfCarac[(dfCarac['lum']!=-1)].groupby(['lum'])['grav']
+                     .value_counts(normalize=True)
+                     .rename('percentage')
+                     .mul(100)
+                     .reset_index()
+                     .sort_values('grav'))
+
+# Display plots
+fig, ax = plt.subplots(1, 2, figsize=(18, 4))
+    # 1st plot
+sns.barplot(x="lum", y="percentage", hue="grav", data=dfCaracGpByLum, 
+             palette=['#C8C8C8','#F4B650','#F45050'], ax=ax[0])
+        # adding horizontal overall proportion by gravity
+ax[0].axhline(y=propGrav.loc[2]*100, color='#C8C8C8', linestyle='--')
+ax[0].axhline(y=propGrav.loc[3]*100, color='#F4B650', linestyle='--')
+ax[0].axhline(y=propGrav.loc[4]*100, color='#F45050', linestyle='--')
+        # text outside the plot
+ax[0].set_xticks(np.arange(0, 5, 1))
+ax[0].set_xticklabels(['day', 'dawn', 'night\nwo light', 'night\nwi light not lit', 'night\n wi light lit'])
+ax[0].set_title('Gravité des accidents en fonction de la luminosité')
+ax[0].set_xlabel('')
+ax[0].set_ylabel('%', rotation=0)
+    # 2nd plot
+sns.heatmap(dfLumGrav.apply(lambda x: x/dfCarac['grav'][(dfCarac['lum']!=-1)].value_counts(normalize=True), axis=1), annot=True, cmap='magma_r', ax=ax[1])
+        # text outside the plot
+ax[1].set_xticks([0.5, 1.5, 2.5])
+ax[1].set_xticklabels(['léger', 'hostpitalisé', 'tué'])
+ax[1].set_yticks([0.5, 1.5, 2.5, 3.5, 4.5])
+ax[1].set_yticklabels(['night\nwo light', 'night\nwi light not lit', 'dawn', 'day', 'night\n wi light lit'], rotation=0)
+ax[1].set_title('Fold de gravité des accidents en fonction de la luminosité')
+ax[1].set_xlabel('')
+ax[1].set_ylabel('');
 
 
 # ### Atm
@@ -1494,11 +1683,11 @@ plt.xlabel('Gravité accident');
 dfUsagers.sexe.value_counts(normalize=True)
 
 
-# In[36]:
+# In[158]:
 
 
 sns.countplot(x=dfUsagers.sexe, color='grey')
-plt.title("Nombre d'accident par présence d'école à proximité")
+plt.title("Nombre d'accident par Sexe")
 plt.hlines(y=len(dfUsagers['sexe'])/2, xmin=-0.5, xmax=1.5, color='blue', alpha=0.4);
 # XXX
 
@@ -1625,7 +1814,7 @@ dfVcramerChisqPvalue.sort_values(by='V Cramer', ascending=False)
 # dfVcramerChisqPvalue
 
 
-# In[113]:
+# In[13]:
 
 
 ##### Vcramer between variables
@@ -1636,9 +1825,12 @@ varList1Lieux = ['catr', 'circ', 'nbv', 'vosp', 'prof', 'plan', 'surf', 'infra',
 varList2Lieux = ['catr', 'circ', 'nbv', 'vosp', 'prof', 'plan', 'surf', 'infra', 'situ', 'env1']
 varList1Usagers = ['place', 'catu', 'sexe', 'trajet', 'secu', 'locp', 'actp', 'etatp']
 varList2Usagers = ['place', 'catu', 'sexe', 'trajet', 'secu', 'locp', 'actp', 'etatp']
+varList1Vehicules = ['choc', 'manv', 'motor', 'senc', 'catv', 'obs', 'obsm']
+varList2Vehicules = ['choc', 'manv', 'motor', 'senc', 'catv', 'obs', 'obsm']
 resMatrixCarac = pd.DataFrame(np.zeros(shape=(len(varList1Carac), len(varList2Carac))), index=varList1Carac, columns=varList2Carac)
 resMatrixLieux = pd.DataFrame(np.zeros(shape=(len(varList1Lieux), len(varList2Lieux))), index=varList1Lieux, columns=varList2Lieux)
 resMatrixUsagers = pd.DataFrame(np.zeros(shape=(len(varList1Usagers), len(varList2Usagers))), index=varList1Usagers, columns=varList2Usagers)
+resMatrixVehicules = pd.DataFrame(np.zeros(shape=(len(varList1Vehicules), len(varList2Vehicules))), index=varList1Vehicules, columns=varList2Vehicules)
 
 ### Filling dataframe (Carac)
 for i in varList1Carac:
@@ -1655,36 +1847,59 @@ for i in varList1Usagers:
     for j in varList2Usagers:
         tab = pd.crosstab(dfUsagers[i], dfUsagers[j])
         resMatrixUsagers[j][i] = round(V_cramer(tab, tab.sum().sum()), 2)
+### Filling dataframe (Vehicules)
+for i in varList1Vehicules:
+    for j in varList2Vehicules:
+        tab = pd.crosstab(dfVehicules[i], dfVehicules[j])
+        resMatrixVehicules[j][i] = round(V_cramer(tab, tab.sum().sum()), 2)
 
 
-# In[114]:
+# In[24]:
 
 
-# Display VCramer dataframe
-fig, ax = plt.subplots(1, 3, figsize=(20, 5))
-sns.heatmap(resMatrixCarac, ax=ax[0])
-sns.heatmap(resMatrixLieux, ax=ax[1])
-sns.heatmap(resMatrixUsagers, ax=ax[2]);
+# Display VCramer dataframes
+fig, ax = plt.subplots(2, 2, figsize=(20, 15))
+sns.heatmap(resMatrixCarac, ax=ax[0, 0])
+ax[0, 0].set_title('Caracteristicts table')
+sns.heatmap(resMatrixLieux, ax=ax[0, 1])
+ax[0, 1].set_title('Places table')
+sns.heatmap(resMatrixUsagers, ax=ax[1, 0])
+ax[1, 0].set_title('Users table');
+sns.heatmap(resMatrixVehicules, ax=ax[1, 1])
+ax[1, 1].set_title('Vehicules table');
 
+# Display raw VCramer dataframes
 print(resMatrixCarac)
 print(resMatrixLieux)
 print(resMatrixUsagers)
+print(resMatrixVehicules)
 
 
-# In[56]:
+# In[142]:
 
 
 # Proportions
-print(dfUsagers.grav2.value_counts(normalize=True))
-print(dfCarac.grav.value_counts(normalize=True))
+propUsagersGrav = round(dfUsagers.grav2.value_counts(normalize=True), 2)
+propCaracGrav = round(dfCarac.grav.value_counts(normalize=True), 2)
+print(propUsagersGrav)
+print(propCaracGrav)
 
 # Display plot
 plt.figure(figsize=(10, 5))
+    # plot
 plt.bar([1, 2, 3, 4], dfUsagers.grav2.value_counts(normalize=True), label='Exemple 1', color=['grey', '#C8C8C8', '#F4B650', '#F45050'])
 plt.bar([6, 7, 8], dfCarac.grav.value_counts(normalize=True), label='Exemple 2', color=['#C8C8C8', '#F4B650', '#F45050'])
-plt.ylim([0, 0.6])
+plt.plot([4.5, 4.5], [0, 0.8], color='k')
+    # text around the plot
+plt.ylim([0, 0.8])
 plt.xticks(ticks=np.arange(1, 9, 1), labels=['indemne', 'léger', 'hospitalisé', 'tué', 'indemne', 'léger', 'hospitalisé', 'tué'])
 plt.title('Gravité des accidents, avant vs après avoir raffiné la variable')
-plt.text(2, 0.5, 'Avant', weight='bold', fontsize=20)
-plt.text(6, 0.5, 'Après', weight='bold', fontsize=20);
+plt.ylabel('%', rotation=0)
+    # text inside the plot
+plt.text(2, 0.7, 'Avant', weight='bold', fontsize=20)
+plt.text(6, 0.7, 'Après', weight='bold', fontsize=20)
+plt.text(0.75, propUsagersGrav.loc[1]+0.025, propUsagersGrav.loc[1], weight='bold')
+for i in np.arange(2, 5):
+    plt.text([1.8, 2.9, 3.8][i-2], propUsagersGrav.loc[i]+0.02, propUsagersGrav.loc[i], weight='bold')
+    plt.text([5.8, 6.9, 7.8][i-2], propCaracGrav.loc[i]+0.02, propCaracGrav.loc[i], weight='bold');
 
