@@ -26,7 +26,7 @@ pip install dill
 python -m install dill
 
 
-# In[1]:
+# In[35]:
 
 
 # import modules
@@ -36,8 +36,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import dill
-from scipy.stats import pearsonr
+import datetime
 import math
+from scipy.stats import pearsonr
 from scipy.stats import chi2_contingency
 
 get_ipython().run_line_magic('matplotlib', 'inline')
@@ -85,7 +86,7 @@ dill.dump_session('notebook_env.db')
 
 # # --------------------------------------Import--------------------------------------
 
-# In[5]:
+# In[87]:
 
 
 ##### Import of tables into dataframes
@@ -94,11 +95,11 @@ dfUsagers = pd.read_csv('20220906_table_usagers.csv', sep=',')
 dfVehicules = pd.read_csv('20220906_table_vehicules.csv', sep=',')
 dfCarac = pd.read_csv('20220906_table_caracteristiques.csv', sep=',')
 
-##### Merging of tables into 1 pooled dataframe
-# dfPool = pd.merge(dfLieux, dfUsagers, dfVehicules, dfCarac, on="Num_Acc")
+##### Additional dataframes
+dfJoursFeriesMetropole = pd.read_csv('20221009_table_joursFeriesMetropole.csv', sep=';')
 
 
-# In[6]:
+# In[5]:
 
 
 print('dfLieux dimensions:', dfLieux.shape)
@@ -112,7 +113,7 @@ print('dfCarac dimensions:', dfCarac.shape)
 
 # ##### Computing new variables
 
-# In[7]:
+# In[88]:
 
 
 # Computing date variable
@@ -141,7 +142,7 @@ dfLieux.lartpc = dfLieux.lartpc.replace('\,', '.', regex=True).astype('float64')
 
 # ##### Refining variables before Merging datasets
 
-# In[156]:
+# In[107]:
 
 
 ### dfCarac
@@ -153,6 +154,12 @@ hourChoices = ["nuit", "heure de pointe", "journee"]
 dfCarac["hourGrp"] = np.select(hourConditions, hourChoices)
 # atm: passer en NA les valeurs -1 et 9 (other) qui sont difficilement interprétables dans un modèle de ML
 dfCarac['atm'] = dfCarac['atm'].replace([-1, 9], [np.nan, np.nan])
+# Date feriée/weekend/feriée ou weekend
+dateFerie = list(map(lambda x: datetime.datetime.strptime(x, '%d/%m/%Y').strftime('%Y-%m-%d'), dfJoursFeriesMetropole['date']))
+dfDateFerie = pd.DataFrame({'dateFerie': dateFerie})
+dfCarac['dateFerie'] = np.where((dfCarac.date.isin(dfDateFerie.dateFerie)), 1, 0)
+dfCarac['dateWeekend'] = np.where((dfCarac.weekday>=5), 1, 0)
+dfCarac['dateFerieAndWeekend'] = np.where((dfCarac.date.isin(dfDateFerie.dateFerie) | (dfCarac.weekday>=5)), 1, 0)
 
 ### dfLieux
 # nbvGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
@@ -196,8 +203,6 @@ dfLieux['surf'] = dfLieux['surf'].replace([-1, 0, 9], [np.nan, np.nan, np.nan])
 # situ: transformation des -1, 0 et 9 en  NA
 dfLieux['situ'] = dfLieux['situ'].replace([-1, 0], [np.nan, np.nan])
 
-
-
 ### dfUsagers
 # Does a gravity of type X exist for an accident
 dfUsagers['grav4exists'] = np.where(dfUsagers.grav2==4, 1, 0)
@@ -205,38 +210,50 @@ dfUsagers['grav3exists'] = np.where(dfUsagers.grav2==3, 1, 0)
 dfUsagers['grav2exists'] = np.where(dfUsagers.grav2==2, 1, 0)
 # Number of pietons in catu variable
 dfUsagers['catu_pieton_exists'] = np.where(((dfUsagers.catu==3) | (dfUsagers.catu==4)), 1, 0)
-# Number of men/women
-dfUsagers['sexe_male_exists'] = np.where((dfUsagers.sexe==1), 1, 0)
-dfUsagers['sexe_female_exists'] = np.where((dfUsagers.sexe==2), 1, 0)
+# Number of men/women conductor
+dfUsagers['sexe_male_conductor_exists'] = np.where(((dfUsagers.sexe==1) & (dfUsagers.catu==1)), 1, 0)
+dfUsagers['sexe_female_conductor_exists'] = np.where(((dfUsagers.sexe==2) & (dfUsagers.catu==1)), 1, 0)
+# Number of conductor going to courses/promenade (3 & 5)
+dfUsagers['trajet_coursesPromenade_conductor_exists'] = np.where((((dfUsagers.trajet==3) & (dfUsagers.catu==1)) | 
+                                                           ((dfUsagers.trajet==5) & (dfUsagers.catu==1))), 1, 0)
 # Computeing all variables as 'is there at least one of'
 dfAtLeastOneByAccident = pd.DataFrame({
-                                      # even exists yes/no
+                                      # event exists yes/no by accident
               'Num_Acc':  dfUsagers.groupby('Num_Acc')['grav4exists'].sum().index, 
               'gravGrp_23_4': np.where(dfUsagers.groupby('Num_Acc')['grav4exists'].sum()>=1, 1, 0), 
               'gravGrp_2_34': np.where(dfUsagers.groupby('Num_Acc')['grav3exists'].sum()>=1, 1, 0), 
               'catu_pieton': np.where(dfUsagers.groupby('Num_Acc')['catu_pieton_exists'].sum()>=1, 1, 0), 
-              'sexe_male': np.where(dfUsagers.groupby('Num_Acc')['sexe_male_exists'].sum()>=1, 1, 0), 
-              'sexe_female': np.where(dfUsagers.groupby('Num_Acc')['sexe_female_exists'].sum()>=1, 1, 0), 
-    
-                                       # count variables
+              'sexe_male_conductor': np.where(dfUsagers.groupby('Num_Acc')['sexe_male_conductor_exists'].sum()>=1, 1, 0), 
+              'sexe_female_conductor': np.where(dfUsagers.groupby('Num_Acc')['sexe_female_conductor_exists'].sum()>=1, 1, 0), 
+              'trajet_coursesPromenade_conductor': np.where(dfUsagers.groupby('Num_Acc')['trajet_coursesPromenade_conductor_exists'].sum()>=1, 1, 0), 
+                    
+                                       # count event variable by accident
               'nb_grav4_by_acc': dfUsagers.groupby('Num_Acc')['grav4exists'].sum(),
               'nb_grav3_by_acc': dfUsagers.groupby('Num_Acc')['grav3exists'].sum(), 
               'nb_catu_pieton': dfUsagers.groupby('Num_Acc')['catu_pieton_exists'].sum(), 
-              'nb_sexe_male': dfUsagers.groupby('Num_Acc')['sexe_male_exists'].sum(), 
-              'nb_sexe_female': dfUsagers.groupby('Num_Acc')['sexe_female_exists'].sum()})
+              'nb_sexe_male_conductor': dfUsagers.groupby('Num_Acc')['sexe_male_conductor_exists'].sum(), 
+              'nb_sexe_female_conductor': dfUsagers.groupby('Num_Acc')['sexe_female_conductor_exists'].sum(), 
+              'nb_trajet_coursesPromenade_conductor': dfUsagers.groupby('Num_Acc')['trajet_coursesPromenade_conductor_exists'].sum()})
+
+### Change index so there is no ambiguity while merging
+dfAtLeastOneByAccident.index = np.arange(1, len(dfAtLeastOneByAccident) + 1)
 
 
-# In[157]:
+# ##### Merging dataFrames post-DataManagement
+
+# In[120]:
 
 
-print(dfAtLeastOneByAccident.sexe_male.value_counts())
-print(dfAtLeastOneByAccident.sexe_female.value_counts())
+##### Merging of tables into 1 pooled dataframe post-DataManagement (2 steps required)
+dfPoolPostDataManagementTemp = pd.merge(dfLieux, dfCarac, on="Num_Acc")
+dfPoolPostDataManagement = pd.merge(dfPoolPostDataManagementTemp, dfAtLeastOneByAccident, on="Num_Acc")
 
 
-# In[149]:
+# In[131]:
 
 
-dfAtLeastOneByAccident[(dfAtLeastOneByAccident.nb_catu_pieton>5)].head(20)
+##### Export dataframe
+dfPoolPostDataManagement.to_csv('20221009_table_poolPostDataManagement_YAH.csv', index=False, sep=';')
 
 
 # ##### Verification transformation variables (Quality Check)
@@ -246,6 +263,9 @@ dfAtLeastOneByAccident[(dfAtLeastOneByAccident.nb_catu_pieton>5)].head(20)
 
 # pd.crosstab(dfCarac["hour"], dfCarac["hourGrp"])
 # dfCarac['atm'].value_counts()
+# print(dfCarac.dateFerie.value_counts(normalize=True))
+# print(dfCarac.dateWeekend.value_counts(normalize=True))
+# print(dfCarac.dateFerieAndWeekend.value_counts(normalize=True))
 # pd.crosstab(dfLieux["nbv"], dfLieux["nbvGrp"])
 # pd.crosstab(dfLieux["vosp"], dfLieux["vospGrp"])
 # dfCarac['prof'].value_counts()
@@ -254,6 +274,9 @@ dfAtLeastOneByAccident[(dfAtLeastOneByAccident.nb_catu_pieton>5)].head(20)
 # dfCarac['situ'].value_counts()
 # dfLieux['lartpcGrp'].value_counts()
 # dfLieux['larroutGrp'].value_counts()
+# dfAtLeastOneByAccident.sexe_male_conductor.value_counts()
+# dfAtLeastOneByAccident.sexe_female_conductor.value_counts()
+# dfAtLeastOneByAccident.trajet_coursesPromenade_conductor.value_counts()
 
 
 # # --------------------------------------Descriptive statistics--------------------------------------
@@ -1733,11 +1756,11 @@ fig.show()
 dfUsagers.trajet.value_counts(normalize=True)
 
 
-# In[45]:
+# In[24]:
 
 
 sns.countplot(x=dfUsagers.trajet[(dfUsagers.trajet>0)], color='grey')
-plt.title("Nombre d'accident par présence d'école à proximité")
+plt.title("Nombre d'accident par type de trajet")
 plt.hlines(y=len(dfUsagers['trajet'][(dfUsagers.trajet>0)])/6, xmin=-0.5, xmax=5.5, color='blue', alpha=0.4);
 # XXX
 
