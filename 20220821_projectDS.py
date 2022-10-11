@@ -26,7 +26,7 @@ pip install dill
 python -m install dill
 
 
-# In[35]:
+# In[1]:
 
 
 # import modules
@@ -74,19 +74,21 @@ os.getcwd()
 
 
 # import session
-dill.load_session('notebook_env.db')
+# dill.load_session('notebook_env.db')
 
 
-# In[143]:
+# In[5]:
 
 
 # save session
-dill.dump_session('notebook_env.db')
+# dill.dump_session('notebook_env.db')
 
 
 # # --------------------------------------Import--------------------------------------
 
-# In[87]:
+# ##### Unique datasets
+
+# In[9]:
 
 
 ##### Import of tables into dataframes
@@ -106,7 +108,21 @@ print('dfLieux dimensions:', dfLieux.shape)
 print('dfUsagers dimensions:', dfUsagers.shape)
 print('dfVehicules dimensions:', dfVehicules.shape)
 print('dfCarac dimensions:', dfCarac.shape)
-# print('dfPool dimensions:', dfPool.shape)
+
+
+# ##### Pooled datasets
+
+# In[6]:
+
+
+##### Import of tables into dataframes
+dfPool = pd.read_csv('20221010_table_poolPostDataManagement_YAH_BPA.csv', sep=',')
+
+
+# In[8]:
+
+
+print('dfPool dimensions:', dfPool.shape)
 
 
 # # --------------------------------------Data-management--------------------------------------
@@ -1800,6 +1816,35 @@ fig.show()
 
 # ### Inferential analysis
 
+# In[10]:
+
+
+# Proportions
+propUsagersGrav = round(dfUsagers.grav2.value_counts(normalize=True), 2)
+propCaracGrav = round(dfCarac.grav.value_counts(normalize=True), 2)
+print(propUsagersGrav)
+print(propCaracGrav)
+
+# Display plot
+plt.figure(figsize=(10, 5))
+    # plot
+plt.bar([1, 2, 3, 4], dfUsagers.grav2.value_counts(normalize=True), label='Exemple 1', color=['grey', '#C8C8C8', '#F4B650', '#F45050'])
+plt.bar([6, 7, 8], dfCarac.grav.value_counts(normalize=True), label='Exemple 2', color=['#C8C8C8', '#F4B650', '#F45050'])
+plt.plot([4.5, 4.5], [0, 0.8], color='k')
+    # text around the plot
+plt.ylim([0, 0.8])
+plt.xticks(ticks=np.arange(1, 9, 1), labels=['indemne', 'léger', 'hospitalisé', 'tué', 'indemne', 'léger', 'hospitalisé', 'tué'])
+plt.title('Gravité des accidents, avant vs après avoir raffiné la variable')
+plt.ylabel('%', rotation=0)
+    # text inside the plot
+plt.text(2, 0.7, 'Avant', weight='bold', fontsize=20)
+plt.text(6, 0.7, 'Après', weight='bold', fontsize=20)
+plt.text(0.75, propUsagersGrav.loc[1]+0.025, propUsagersGrav.loc[1], weight='bold')
+for i in np.arange(2, 5):
+    plt.text([1.8, 2.9, 3.8][i-2], propUsagersGrav.loc[i]+0.02, propUsagersGrav.loc[i], weight='bold')
+    plt.text([5.8, 6.9, 7.8][i-2], propCaracGrav.loc[i]+0.02, propCaracGrav.loc[i], weight='bold');
+
+
 # In[102]:
 
 
@@ -1880,7 +1925,7 @@ for i in varList1Vehicules:
 # In[24]:
 
 
-# Display VCramer dataframes
+# Display VCramer dataframes - Unique datasets
 fig, ax = plt.subplots(2, 2, figsize=(20, 15))
 sns.heatmap(resMatrixCarac, ax=ax[0, 0])
 ax[0, 0].set_title('Caracteristicts table')
@@ -1898,31 +1943,82 @@ print(resMatrixUsagers)
 print(resMatrixVehicules)
 
 
-# In[142]:
+# In[16]:
 
 
-# Proportions
-propUsagersGrav = round(dfUsagers.grav2.value_counts(normalize=True), 2)
-propCaracGrav = round(dfCarac.grav.value_counts(normalize=True), 2)
-print(propUsagersGrav)
-print(propCaracGrav)
+##### Describing dfPool
+dfPool.head(3)
 
-# Display plot
-plt.figure(figsize=(10, 5))
-    # plot
-plt.bar([1, 2, 3, 4], dfUsagers.grav2.value_counts(normalize=True), label='Exemple 1', color=['grey', '#C8C8C8', '#F4B650', '#F45050'])
-plt.bar([6, 7, 8], dfCarac.grav.value_counts(normalize=True), label='Exemple 2', color=['#C8C8C8', '#F4B650', '#F45050'])
-plt.plot([4.5, 4.5], [0, 0.8], color='k')
-    # text around the plot
-plt.ylim([0, 0.8])
-plt.xticks(ticks=np.arange(1, 9, 1), labels=['indemne', 'léger', 'hospitalisé', 'tué', 'indemne', 'léger', 'hospitalisé', 'tué'])
-plt.title('Gravité des accidents, avant vs après avoir raffiné la variable')
-plt.ylabel('%', rotation=0)
-    # text inside the plot
-plt.text(2, 0.7, 'Avant', weight='bold', fontsize=20)
-plt.text(6, 0.7, 'Après', weight='bold', fontsize=20)
-plt.text(0.75, propUsagersGrav.loc[1]+0.025, propUsagersGrav.loc[1], weight='bold')
-for i in np.arange(2, 5):
-    plt.text([1.8, 2.9, 3.8][i-2], propUsagersGrav.loc[i]+0.02, propUsagersGrav.loc[i], weight='bold')
-    plt.text([5.8, 6.9, 7.8][i-2], propCaracGrav.loc[i]+0.02, propCaracGrav.loc[i], weight='bold');
+
+# In[18]:
+
+
+dfPool.apply(pd.Series.value_counts)
+
+
+# In[19]:
+
+
+dfPool.info
+
+
+# In[22]:
+
+
+dfPool.dtypes
+
+
+# In[104]:
+
+
+dfPool.surf.value_counts()
+
+
+# In[ ]:
+
+
+# Create a dataframe specific for ML dfPoolML where variables that can't be used won't be there
+# Create a new dataframe
+# Create xl file with quick definition of each variables that can be used for ML: what is it, categories, type (cat/num), corr
+# Il reste des données -1 (e.g. int)
+
+
+# In[105]:
+
+
+##### Vcramer between variables - pooled dataset
+### Initiating objects
+varList1Pool = ['prof', 'planGrp', 'surf', 'atm', 'situ', 
+                'vospGrp', 
+                'larroutGrp', 'lartpcGrp', 
+                'env1', 'catv_EPD_exist', 'catv_PL_exist', 
+                'obsGrp', 'trajet_coursesPromenade_conductor', 
+                
+                'sexe_male_conductor', 'sexe_female_conductor', 
+                'int', 'intGrp', 'catv_train_exist', 'infra', 'agg', 'catr', 'hour', 'hourGrp', 'lum', 'com', 'dep', 'circ', 'nbvGrp', 
+                'catv_2_roues_exist', 'nbVeh', 'catu_pieton', 'col', 'populationGrp', 
+                'year', 'mois_label', 'jour', 
+                'weekday', 'dateWeekend', 'dateFerieAndWeekend', 'dateFerie']
+varList2Pool = varList1Pool
+resMatrixPool = pd.DataFrame(np.zeros(shape=(len(varList1Pool), len(varList2Pool))), index=varList1Pool, columns=varList2Pool)
+
+### Filling dataframe (Pool)
+for i in varList1Pool:
+    for j in varList2Pool:
+        tab = pd.crosstab(dfPool[i], dfPool[j])
+        resMatrixPool[j][i] = round(V_cramer(tab, tab.sum().sum()), 2)
+
+
+# In[64]:
+
+
+resMatrixPool
+
+
+# In[106]:
+
+
+# Display VCramer dataframes
+fig, ax = plt.subplots(figsize=(20, 15))
+sns.heatmap(resMatrixPool, ax=ax);
 
