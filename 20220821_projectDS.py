@@ -17,6 +17,7 @@
 
 # install modules
 pip install dill
+pip install xgboost
 
 
 # In[ ]:
@@ -26,7 +27,7 @@ pip install dill
 python -m install dill
 
 
-# In[1]:
+# In[90]:
 
 
 # import modules
@@ -35,16 +36,26 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 import dill
 import datetime
 import math
+
 from scipy.stats import pearsonr
 from scipy.stats import chi2_contingency
+
+from sklearn import model_selection
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import classification_report
+from sklearn import preprocessing
+
+from sklearn.linear_model import LinearRegression
+import xgboost as xgb
 
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[2]:
+# In[4]:
 
 
 # functions
@@ -61,7 +72,7 @@ def V_cramer(tab, n):
     return V
 
 
-# In[3]:
+# In[5]:
 
 
 ##### Defining directory
@@ -119,7 +130,7 @@ print('dfCarac dimensions:', dfCarac.shape)
 dfPool = pd.read_csv('20221010_table_poolPostDataManagement_YAH_BPA.csv', sep=',')
 
 
-# In[8]:
+# In[7]:
 
 
 print('dfPool dimensions:', dfPool.shape)
@@ -1993,7 +2004,6 @@ varList1Pool = ['prof', 'planGrp', 'surf', 'atm', 'situ',
                 'larroutGrp', 'lartpcGrp', 
                 'env1', 'catv_EPD_exist', 'catv_PL_exist', 
                 'obsGrp', 'trajet_coursesPromenade_conductor', 
-                
                 'sexe_male_conductor', 'sexe_female_conductor', 
                 'int', 'intGrp', 'catv_train_exist', 'infra', 'agg', 'catr', 'hour', 'hourGrp', 'lum', 'com', 'dep', 'circ', 'nbvGrp', 
                 'catv_2_roues_exist', 'nbVeh', 'catu_pieton', 'col', 'populationGrp', 
@@ -2021,4 +2031,287 @@ resMatrixPool
 # Display VCramer dataframes
 fig, ax = plt.subplots(figsize=(20, 15))
 sns.heatmap(resMatrixPool, ax=ax);
+
+
+# # --------------------------------------Pre-processing--------------------------------------
+# ### Preprocessing of datasets for specific methods to be used
+
+# In[72]:
+
+
+##### Création de data-frames en fonction de problématiques différentes
+### All variables for gravGrp2_34 (e.g. xgboost)
+# removed: 'dep'
+dfPoolML2_34 = dfPool[['gravGrp_2_34', 'prof', 'planGrp', 'surf', 'atm', 'situ', 
+                            'vospGrp', 
+                            'larroutGrp', 'lartpcGrp', 
+                            'env1', 'catv_EPD_exist', 'catv_PL_exist', 
+                            'obsGrp', 'trajet_coursesPromenade_conductor', 
+                            'sexe_male_conductor', 'sexe_female_conductor', 
+                            'int', 'intGrp', 'catv_train_exist', 'infra', 'agg', 'catr', 
+                            'hour', 'hourGrp', 'lum', 'com', 'circ', 'nbvGrp', 
+                            'catv_2_roues_exist', 'nbVeh', 'catu_pieton', 'col', 'populationGrp', 
+                            'year', 'mois_label', 'jour', 
+                            'weekday', 'dateWeekend', 'dateFerieAndWeekend', 'dateFerie']]
+##### All variables without strong Cramer for gravGrp2_34 (e.g. regression)
+### toupdate
+# removed: 'dep', 'surf', 'lartpcGrp', 'catv_EPD_exist', 'vospGrp', 'int', 'catv_train_exist', 'sexe_female_conductor', 
+# 'catr', 'hour', 'hourGrp', 'circ', 'catv_2_roues_exist', 'nbVeh', 'catu_pieton', 'populationGrp', 'larroutGrp', 'obsGrp', 
+# 'dateWeekend', 'dateFerie', 
+dfPoolML2_34noCorr = dfPool[['gravGrp_2_34', 'prof', 'planGrp', 'atm', 'situ', 
+                            
+                            
+                            'env1', 'catv_PL_exist', 
+                            'trajet_coursesPromenade_conductor', 
+                            'sexe_male_conductor', 
+                            'intGrp', 'infra', 'agg', 
+                            'lum', 'com', 'nbvGrp', 
+                            'col', 
+                            'year', 'mois_label', 'jour', 
+                            'weekday', 'dateFerieAndWeekend']]
+
+
+# In[73]:
+
+
+### Suppression des lignes comportant des NA pour les algorithmes nécessaires
+dfPoolML2_34noCorrNoNA = dfPoolML2_34noCorr.dropna()
+
+
+# In[63]:
+
+
+### Verification of number of NA
+max(dfPoolML2_34noCorrNoNA.isnull().sum() * 100 / len(dfPoolML2_34noCorrNoNA))
+
+
+# # --------------------------------------Modelling--------------------------------------
+# ### XGBoost
+# - Immune to multi-collinearity
+# - Works with NA values
+
+# In[11]:
+
+
+# Defining target and features
+target_xgb = dfPoolML2_34.gravGrp_2_34
+features = dfPoolML2_34.drop('gravGrp_2_34', axis=1)
+features_matrix = pd.get_dummies(features, drop_first=True)
+
+
+# In[15]:
+
+
+# Verification of features length
+print(len(set(features_matrix.columns)))
+print(len(features_matrix.columns))
+
+
+# In[14]:
+
+
+# Checking if any duplicate feature in the matrix and if so which ones
+duplicate_columns = features_matrix.columns[features_matrix.columns.duplicated()]
+duplicate_columns
+
+
+# In[16]:
+
+
+### Splitting into train & test
+X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix, target_xgb, test_size=0.2, random_state=1)
+
+
+# In[17]:
+
+
+X_train.columns
+
+
+# In[18]:
+
+
+print(X_train.shape)
+print(X_test.shape)
+
+
+# In[19]:
+
+
+train = xgb.DMatrix(data=X_train, label=y_train)
+test = xgb.DMatrix(data=X_test, label=y_test)
+
+
+# In[20]:
+
+
+params = {'booster' : 'gbtree', 
+          'learning_rate' : 1, 
+          'objective' : 'binary:logistic'}
+xgb1 = xgb.train(params=params, dtrain=train, num_boost_round=50, evals=[(train, 'train'), (test, 'eval')])
+
+
+# In[24]:
+
+
+types = ['weight', 'gain', 'cover', 'total_gain', 'total_cover']
+
+for f in types:
+    xgb.plot_importance(xgb1 ,max_num_features=15, importance_type=f, title='importance: '+f);
+
+
+# In[34]:
+
+
+# Train
+preds_train = xgb1.predict(train)
+xgb_preds_train = pd.Series(np.where(preds_train > 0.5, 1, 0))
+# Test
+preds_test = xgb1.predict(test)
+xgb_preds_test = pd.Series(np.where(preds_test > 0.5, 1, 0))
+
+
+# In[41]:
+
+
+# Train contingency table
+pd.crosstab(y_train, xgb_preds_train, colnames=['xgb_pred_train'])
+
+
+# In[42]:
+
+
+# Test contingency table
+pd.crosstab(y_test, xgb_preds_test, colnames=['xgb_pred_test'])
+
+
+# In[26]:
+
+
+# Test contingency table
+pd.crosstab(y_test, xgb_preds_test, normalize=True)
+
+
+# In[47]:
+
+
+print(16393+5972+11923+8562)
+print(271131+92147+179717+138470)
+
+
+# In[31]:
+
+
+print((271131+92147)/(271131+92147+179717+138470))
+print((16393+5972)/(16393+5972+11923+8562))
+
+
+# In[28]:
+
+
+# Performance criteria
+print(classification_report(y_train, xgb_preds_train))
+print(classification_report(y_test, xgb_preds_test))
+
+
+# In[116]:
+
+
+rmse_train = np.sqrt(mean_squared_error(y_train, preds_train))
+rmse_test = np.sqrt(mean_squared_error(y_test, preds_test))
+print("RMSE train: %f" % (rmse_train))
+print("RMSE test : %f" % (rmse_test))
+
+
+# ### Logistic regression
+# - Sensitivte to multi-collinearity
+# - Doesn't work with NA values
+# - Only floats for predictions so a pd.get_dummies is required
+# - Standardization helps to not mislead variables range with their weight
+
+# In[74]:
+
+
+# Defining target and features
+target_lr = dfPoolML2_34noCorrNoNA.gravGrp_2_34
+features_lr = dfPoolML2_34noCorrNoNA.drop('gravGrp_2_34', axis=1)
+features_matrix_lr = pd.get_dummies(features_lr, drop_first=True)
+
+
+# In[75]:
+
+
+### Splitting into train & test
+X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix_lr, target_lr, test_size=0.2, random_state=1)
+
+
+# In[77]:
+
+
+# LR model
+lr = LinearRegression()
+lr.fit(X_train, y_train)
+lr_pred_train = lr.predict(X_train)
+lr_pred_test = lr.predict(X_test)
+
+
+# In[82]:
+
+
+pd.crosstab(y_train, lr_pred_train>=0.5, normalize=True)
+
+
+# In[83]:
+
+
+pd.crosstab(y_test, lr_pred_test>=0.5, normalize=True)
+
+
+# In[79]:
+
+
+# Performance criteria
+print(classification_report(y_train, lr_pred_train>=0.5))
+print(classification_report(y_test, lr_pred_test>=0.5))
+
+
+# In[91]:
+
+
+coeffs = list(lr.coef_)
+coeffs.insert(0, lr.intercept_)
+
+feats = list(X_train.columns)
+feats.insert(0, 'intercept')
+
+pd.DataFrame({'valeur estimée': coeffs}, index=feats)
+
+
+# In[93]:
+
+
+print(lr.score(X_train, y_train))
+print(model_selection.cross_val_score(lr, X_train, y_train).mean())
+
+
+# In[96]:
+
+
+from sklearn.metrics import roc_curve, auc
+# AUC
+fpr, tpr, seuils = roc_curve(y_test, lr_pred_test, pos_label=1)
+roc_auc = auc(fpr, tpr)
+roc_auc
+
+
+# In[108]:
+
+
+# ROC curve
+plt.plot(fpr, tpr, color='orange', lw=2, label=round(roc_auc, 2))
+plt.plot(np.arange(0, 1, 0.01), np.arange(0, 1, 0.01), 'b--', label='0.50')
+plt.ylabel('Taux vrais positifs')
+plt.xlabel('Taux faux positifs')
+plt.title('Courbe ROC')
+plt.legend(loc='lower right');
 
