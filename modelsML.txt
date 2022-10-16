@@ -1,0 +1,21 @@
+Preprocessing:
+Issues:
+-pd.get_dummies is not done on some variables (when these variables have numbers instead of categories)
+-nos types de variables ne sont pas okay
+
+xgboost: launched with NAs on a lot of variables
+Issues:
+-I have the wrong results with classification_report
+-I have the wrong samples with classification_report
+
+glm: launched without NA, without correlated variables, without modalities that can't be taken into account
+
+We should
+1-finish dmng of variables to Grp
+2-transform each variable in the right format
+3-check relation of each variable vs outcome in final dataset
+4-check relation of each variable vs other ones in final dataset
+5-build datasets ready for specific ML methods
+6-launch ML methods
+7-tunning ML methods
+
