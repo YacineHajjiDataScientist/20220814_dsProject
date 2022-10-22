@@ -27,7 +27,7 @@ pip install xgboost
 python -m install dill
 
 
-# In[90]:
+# In[1]:
 
 
 # import modules
@@ -55,7 +55,7 @@ import xgboost as xgb
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[4]:
+# In[2]:
 
 
 # functions
@@ -72,7 +72,7 @@ def V_cramer(tab, n):
     return V
 
 
-# In[5]:
+# In[3]:
 
 
 ##### Defining directory
@@ -81,14 +81,14 @@ os.chdir('C:\\Users\\Megaport\\Desktop\\jupyterNotebook')
 os.getcwd()
 
 
-# In[4]:
+# In[ ]:
 
 
 # import session
 # dill.load_session('notebook_env.db')
 
 
-# In[5]:
+# In[ ]:
 
 
 # save session
@@ -99,7 +99,7 @@ os.getcwd()
 
 # ##### Unique datasets
 
-# In[9]:
+# In[154]:
 
 
 ##### Import of tables into dataframes
@@ -112,7 +112,7 @@ dfCarac = pd.read_csv('20220906_table_caracteristiques.csv', sep=',')
 dfJoursFeriesMetropole = pd.read_csv('20221009_table_joursFeriesMetropole.csv', sep=';')
 
 
-# In[5]:
+# In[6]:
 
 
 print('dfLieux dimensions:', dfLieux.shape)
@@ -123,14 +123,14 @@ print('dfCarac dimensions:', dfCarac.shape)
 
 # ##### Pooled datasets
 
-# In[6]:
+# In[77]:
 
 
 ##### Import of tables into dataframes
 dfPool = pd.read_csv('20221010_table_poolPostDataManagement_YAH_BPA.csv', sep=',')
 
 
-# In[7]:
+# In[8]:
 
 
 print('dfPool dimensions:', dfPool.shape)
@@ -140,7 +140,7 @@ print('dfPool dimensions:', dfPool.shape)
 
 # ##### Computing new variables
 
-# In[88]:
+# In[155]:
 
 
 # Computing date variable
@@ -162,6 +162,13 @@ dfCarac['hour'] = dfCarac['hrmn']//100
 # Year of accident
 dfCarac['year'] = dfCarac['date'].dt.year
 
+# Adding the year variable to dfUsagers dataframe
+dfUsagers = dfUsagers.merge(right=dfCarac[['Num_Acc', 'year']], on='Num_Acc')
+
+# Age of people during the accident (removing ages above 99, could be completion issues and there are very few values)
+dfUsagers['age'] = dfUsagers.year - dfUsagers.an_nais
+dfUsagers.loc[dfUsagers['age'] > 99, 'age'] = np.nan
+
 # Largeur de la route assignée au trafic
 dfLieux.larrout = dfLieux.larrout.replace('\,', '.', regex=True).astype('float64')
 dfLieux.lartpc = dfLieux.lartpc.replace('\,', '.', regex=True).astype('float64')
@@ -169,19 +176,19 @@ dfLieux.lartpc = dfLieux.lartpc.replace('\,', '.', regex=True).astype('float64')
 
 # ##### Refining variables before Merging datasets
 
-# In[107]:
+# In[156]:
 
 
 ### dfCarac
-# hourGrp: nuit (22h - 6h) - jour heures creuses (10h-16h) - jour heures de pointe (7-9h, 17-21h)
+## hourGrp: nuit (22h - 6h) - jour heures creuses (10h-16h) - jour heures de pointe (7-9h, 17-21h)
 hourConditions = [((dfCarac["hour"]>=22) | (dfCarac["hour"]<=6)),
                   (((dfCarac["hour"]>=7) & (dfCarac["hour"]<=9)) | ((dfCarac["hour"]>=17) & (dfCarac["hour"]<=21))),
                   ((dfCarac["hour"]>=10) | (dfCarac["hour"]<=16))]
 hourChoices = ["nuit", "heure de pointe", "journee"]
 dfCarac["hourGrp"] = np.select(hourConditions, hourChoices)
-# atm: passer en NA les valeurs -1 et 9 (other) qui sont difficilement interprétables dans un modèle de ML
+## atm: passer en NA les valeurs -1 et 9 (other) qui sont difficilement interprétables dans un modèle de ML
 dfCarac['atm'] = dfCarac['atm'].replace([-1, 9], [np.nan, np.nan])
-# Date feriée/weekend/feriée ou weekend
+## Date feriée/weekend/feriée ou weekend
 dateFerie = list(map(lambda x: datetime.datetime.strptime(x, '%d/%m/%Y').strftime('%Y-%m-%d'), dfJoursFeriesMetropole['date']))
 dfDateFerie = pd.DataFrame({'dateFerie': dateFerie})
 dfCarac['dateFerie'] = np.where((dfCarac.date.isin(dfDateFerie.dateFerie)), 1, 0)
@@ -189,7 +196,7 @@ dfCarac['dateWeekend'] = np.where((dfCarac.weekday>=5), 1, 0)
 dfCarac['dateFerieAndWeekend'] = np.where((dfCarac.date.isin(dfDateFerie.dateFerie) | (dfCarac.weekday>=5)), 1, 0)
 
 ### dfLieux
-# nbvGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
+## nbvGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
 nbvConditions = [((dfLieux["nbv"]>=9) | (dfLieux["nbv"]==-1)),
                 (dfLieux["nbv"]==0),
                 (dfLieux["nbv"]==1),
@@ -198,13 +205,13 @@ nbvConditions = [((dfLieux["nbv"]>=9) | (dfLieux["nbv"]==-1)),
                 (dfLieux["nbv"]>=4),]
 nbvChoices = [np.nan, '0', '1', '2', '3', '4+']
 dfLieux['nbvGrp'] = np.select(nbvConditions, nbvChoices)
-# vostGrp: présence yes/no d'une voie réservée
+## vostGrp: présence yes/no d'une voie réservée
 dfLieux['vospGrp'] = dfLieux['vosp'].replace([-1, 0, 1, 2, 3], [np.nan, 0, 1, 1, 1])
-# profGrp: -1 et 0 en NA
+## profGrp: -1 et 0 en NA
 dfLieux['prof'] = dfLieux['prof'].replace([-1, 0], [np.nan, np.nan])
-# planGrp: en binaire not straight vs straight (yes/no), les -1 et 0 en NA
+## planGrp: en binaire not straight vs straight (yes/no), les -1 et 0 en NA
 dfLieux['planGrp'] = dfLieux['plan'].replace([-1, 0, 1, 2, 3, 4], [np.nan, np.nan, 0, 1, 1, 1])
-# lartpcGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
+## lartpcGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
 lartpcConditions = [((dfLieux["lartpc"]==0.0)),
                     ((dfLieux["lartpc"]>=20)),
                     ((dfLieux["lartpc"]>0) & (dfLieux["lartpc"]<5)),
@@ -214,7 +221,7 @@ lartpcConditions = [((dfLieux["lartpc"]==0.0)),
 lartpcChoices = [np.nan, np.nan, 1, 2, 3, 4]
 dfLieux['lartpcGrp'] = np.select(lartpcConditions, lartpcChoices)
 dfLieux['lartpcGrp'] = dfLieux['lartpcGrp'].replace([0, 1, 2, 3, 4], [np.nan, '0-5', '5-10', '10-15', '15-20'])
-# larroutGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
+## larroutGrp: 0/1/2/3/4+, avec -1 et 9+ en NA
 larroutConditions = [((dfLieux["larrout"]==0.0)),
                     ((dfLieux["larrout"]>=200)),
                     ((dfLieux["larrout"]>0) & (dfLieux["larrout"]<50)),
@@ -225,25 +232,63 @@ larroutChoices = [np.nan, np.nan, 1, 2, 3, 4]
 dfLieux['larroutGrp'] = np.select(larroutConditions, larroutChoices)
 dfLieux['larroutGrp'] = dfLieux['larroutGrp'].replace([0, 1, 2, 3, 4], [np.nan, '0-50', '50-100', '100-150', '150-200'])
 
-# surf: transformation des -1, 0 et 9 en  NA
+## surf: transformation des -1, 0 et 9 en NA
 dfLieux['surf'] = dfLieux['surf'].replace([-1, 0, 9], [np.nan, np.nan, np.nan])
-# situ: transformation des -1, 0 et 9 en  NA
+## situ: transformation des -1, 0 et 9 en  NA
 dfLieux['situ'] = dfLieux['situ'].replace([-1, 0], [np.nan, np.nan])
 
 ### dfUsagers
-# Does a gravity of type X exist for an accident
+## Does a gravity of type X exist for an accident
 dfUsagers['grav4exists'] = np.where(dfUsagers.grav2==4, 1, 0)
 dfUsagers['grav3exists'] = np.where(dfUsagers.grav2==3, 1, 0)
 dfUsagers['grav2exists'] = np.where(dfUsagers.grav2==2, 1, 0)
-# Number of pietons in catu variable
+## place: transformation des 0 en NA
+dfUsagers['place'] = dfUsagers['place'].replace([0], [np.nan])
+## actp: harmonization des valeurs et transformation des -1 en NA
+dfUsagers['actp'] = dfUsagers['actp'].replace({'0.0':0, '0':0, 0:0,
+                                              '-1.0':np.nan, '-1':np.nan, ' -1':np.nan, -1:np.nan,
+                                              '1.0':1, '1':1, 1:1,
+                                              '2.0':2, '2':2, 2:2,
+                                              '3.0':3, '3':3, 3:3,
+                                              '4.0':4, '4':4, 4:4,
+                                              '5.0':5, '5':5, 5:5,
+                                              '6.0':6, '6':6, 6:6,
+                                              '7.0':7, '7':7, 7:7,
+                                              '8.0':8, '8':8, 8:8,
+                                              '9.0':9, '9':9, 9:9
+                                              })
+## etatp: transformation des -1 en NA et nombre de piétons seuls dans l'accident
+dfUsagers['etatp'] = dfUsagers['etatp'].replace([-1], [np.nan])
+dfUsagers['etatp_pieton_alone_exists'] = np.where((dfUsagers['etatp']==1), 1, 0)
+## locp: transformation des 0 en NA et nombre de piétons en fonction de leur position pendant l'accident
+dfUsagers['locp'] = dfUsagers['locp'].replace([-1], [np.nan])
+dfUsagers['locp_pieton_1_exists'] = np.where(((dfUsagers.locp==1)), 1, 0)
+dfUsagers['locp_pieton_3_exists'] = np.where(((dfUsagers.locp==3)), 1, 0)
+dfUsagers['locp_pieton_6_exists'] = np.where(((dfUsagers.locp==6)), 1, 0)
+## Number of pietons in catu variable (or catu_conductor)
 dfUsagers['catu_pieton_exists'] = np.where(((dfUsagers.catu==3) | (dfUsagers.catu==4)), 1, 0)
-# Number of men/women conductor
+dfUsagers['catu_conductor_exists'] = np.where(((dfUsagers.catu==1)), 1, 0)
+## Number of men/women conductor
 dfUsagers['sexe_male_conductor_exists'] = np.where(((dfUsagers.sexe==1) & (dfUsagers.catu==1)), 1, 0)
 dfUsagers['sexe_female_conductor_exists'] = np.where(((dfUsagers.sexe==2) & (dfUsagers.catu==1)), 1, 0)
-# Number of conductor going to courses/promenade (3 & 5)
+## Number of conductor going to courses/promenade (3 & 5)
 dfUsagers['trajet_coursesPromenade_conductor_exists'] = np.where((((dfUsagers.trajet==3) & (dfUsagers.catu==1)) | 
                                                            ((dfUsagers.trajet==5) & (dfUsagers.catu==1))), 1, 0)
-# Computeing all variables as 'is there at least one of'
+## Mean age of conductors and nonCoductors by accident
+# Preliminary dataFrames with mean age of Conductors/nonConductors by accident
+dfAgeMeanConductors = dfUsagers[(dfUsagers['catu_conductor_exists']==1)][['Num_Acc', 'age']].groupby(['Num_Acc']).mean().rename({'age':'ageMeanConductors'}, axis=1)
+dfAgeMeanNonConductors = dfUsagers[(dfUsagers['catu_conductor_exists']==0)][['Num_Acc', 'age']].groupby(['Num_Acc']).mean().rename({'age':'ageMeanNonConductors'}, axis=1)
+# New variable 'Num_Acc' for merging
+dfAgeMeanConductors['Num_Acc'] = dfAgeMeanConductors.index
+dfAgeMeanNonConductors['Num_Acc'] = dfAgeMeanNonConductors.index
+# Change index so there is no ambiguity while merging
+dfAgeMeanConductors.index = np.arange(1, len(dfAgeMeanConductors) + 1)
+dfAgeMeanNonConductors.index = np.arange(1, len(dfAgeMeanNonConductors) + 1)
+# Merging new variables
+dfUsagers = dfUsagers.merge(right=dfAgeMeanConductors, how='left', on='Num_Acc')
+dfUsagers = dfUsagers.merge(right=dfAgeMeanNonConductors, how='left', on='Num_Acc')
+
+### Computeing all variables as 'is there at least one of'
 dfAtLeastOneByAccident = pd.DataFrame({
                                       # event exists yes/no by accident
               'Num_Acc':  dfUsagers.groupby('Num_Acc')['grav4exists'].sum().index, 
@@ -253,14 +298,26 @@ dfAtLeastOneByAccident = pd.DataFrame({
               'sexe_male_conductor': np.where(dfUsagers.groupby('Num_Acc')['sexe_male_conductor_exists'].sum()>=1, 1, 0), 
               'sexe_female_conductor': np.where(dfUsagers.groupby('Num_Acc')['sexe_female_conductor_exists'].sum()>=1, 1, 0), 
               'trajet_coursesPromenade_conductor': np.where(dfUsagers.groupby('Num_Acc')['trajet_coursesPromenade_conductor_exists'].sum()>=1, 1, 0), 
-                    
+              'etatpGrp_pieton_alone': np.where(dfUsagers.groupby('Num_Acc')['etatp_pieton_alone_exists'].sum()>=1, 1, 0),
+              'locpGrp_pieton_1': np.where(dfUsagers.groupby('Num_Acc')['locp_pieton_1_exists'].sum()>=1, 1, 0),
+              'locpGrp_pieton_3': np.where(dfUsagers.groupby('Num_Acc')['locp_pieton_3_exists'].sum()>=1, 1, 0),
+              'locpGrp_pieton_6': np.where(dfUsagers.groupby('Num_Acc')['locp_pieton_6_exists'].sum()>=1, 1, 0),
+                   
                                        # count event variable by accident
               'nb_grav4_by_acc': dfUsagers.groupby('Num_Acc')['grav4exists'].sum(),
               'nb_grav3_by_acc': dfUsagers.groupby('Num_Acc')['grav3exists'].sum(), 
               'nb_catu_pieton': dfUsagers.groupby('Num_Acc')['catu_pieton_exists'].sum(), 
               'nb_sexe_male_conductor': dfUsagers.groupby('Num_Acc')['sexe_male_conductor_exists'].sum(), 
               'nb_sexe_female_conductor': dfUsagers.groupby('Num_Acc')['sexe_female_conductor_exists'].sum(), 
-              'nb_trajet_coursesPromenade_conductor': dfUsagers.groupby('Num_Acc')['trajet_coursesPromenade_conductor_exists'].sum()})
+              'nb_trajet_coursesPromenade_conductor': dfUsagers.groupby('Num_Acc')['trajet_coursesPromenade_conductor_exists'].sum(), 
+              'nb_etatpGrp_pieton_alone': dfUsagers.groupby('Num_Acc')['etatp_pieton_alone_exists'].sum(), 
+              'nb_locpGrp_pieton_1': dfUsagers.groupby('Num_Acc')['locp_pieton_1_exists'].sum(), 
+              'nb_locpGrp_pieton_3': dfUsagers.groupby('Num_Acc')['locp_pieton_3_exists'].sum(), 
+              'nb_locpGrp_pieton_6': dfUsagers.groupby('Num_Acc')['locp_pieton_6_exists'].sum(), 
+    
+                                        # mean of variable by accident
+              'ageMeanConductors': dfUsagers.groupby('Num_Acc')['ageMeanConductors'].mean(), 
+              'ageMeanNonConductors': dfUsagers.groupby('Num_Acc')['ageMeanNonConductors'].mean()})
 
 ### Change index so there is no ambiguity while merging
 dfAtLeastOneByAccident.index = np.arange(1, len(dfAtLeastOneByAccident) + 1)
@@ -268,7 +325,7 @@ dfAtLeastOneByAccident.index = np.arange(1, len(dfAtLeastOneByAccident) + 1)
 
 # ##### Merging dataFrames post-DataManagement
 
-# In[120]:
+# In[164]:
 
 
 ##### Merging of tables into 1 pooled dataframe post-DataManagement (2 steps required)
@@ -276,11 +333,11 @@ dfPoolPostDataManagementTemp = pd.merge(dfLieux, dfCarac, on="Num_Acc")
 dfPoolPostDataManagement = pd.merge(dfPoolPostDataManagementTemp, dfAtLeastOneByAccident, on="Num_Acc")
 
 
-# In[131]:
+# In[171]:
 
 
 ##### Export dataframe
-dfPoolPostDataManagement.to_csv('20221009_table_poolPostDataManagement_YAH.csv', index=False, sep=';')
+dfPoolPostDataManagement.to_csv('20221022_table_poolPostDataManagement_YAH.csv', index=False, sep=';')
 
 
 # ##### Verification transformation variables (Quality Check)
