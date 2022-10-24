@@ -99,7 +99,7 @@ os.getcwd()
 
 # ##### Unique datasets
 
-# In[154]:
+# In[10]:
 
 
 ##### Import of tables into dataframes
@@ -140,7 +140,7 @@ print('dfPool dimensions:', dfPool.shape)
 
 # ##### Computing new variables
 
-# In[155]:
+# In[11]:
 
 
 # Computing date variable
@@ -176,7 +176,7 @@ dfLieux.lartpc = dfLieux.lartpc.replace('\,', '.', regex=True).astype('float64')
 
 # ##### Refining variables before Merging datasets
 
-# In[156]:
+# In[12]:
 
 
 ### dfCarac
@@ -239,6 +239,7 @@ dfLieux['situ'] = dfLieux['situ'].replace([-1, 0], [np.nan, np.nan])
 
 ### dfUsagers
 ## Does a gravity of type X exist for an accident
+dfUsagers['grav34exists'] = np.where(dfUsagers.grav2>=3, 1, 0)
 dfUsagers['grav4exists'] = np.where(dfUsagers.grav2==4, 1, 0)
 dfUsagers['grav3exists'] = np.where(dfUsagers.grav2==3, 1, 0)
 dfUsagers['grav2exists'] = np.where(dfUsagers.grav2==2, 1, 0)
@@ -293,7 +294,7 @@ dfAtLeastOneByAccident = pd.DataFrame({
                                       # event exists yes/no by accident
               'Num_Acc':  dfUsagers.groupby('Num_Acc')['grav4exists'].sum().index, 
               'gravGrp_23_4': np.where(dfUsagers.groupby('Num_Acc')['grav4exists'].sum()>=1, 1, 0), 
-              'gravGrp_2_34': np.where(dfUsagers.groupby('Num_Acc')['grav3exists'].sum()>=1, 1, 0), 
+              'gravGrp_2_34': np.where(dfUsagers.groupby('Num_Acc')['grav34exists'].sum()>=1, 1, 0), 
               'catu_pieton': np.where(dfUsagers.groupby('Num_Acc')['catu_pieton_exists'].sum()>=1, 1, 0), 
               'sexe_male_conductor': np.where(dfUsagers.groupby('Num_Acc')['sexe_male_conductor_exists'].sum()>=1, 1, 0), 
               'sexe_female_conductor': np.where(dfUsagers.groupby('Num_Acc')['sexe_female_conductor_exists'].sum()>=1, 1, 0), 
@@ -325,7 +326,7 @@ dfAtLeastOneByAccident.index = np.arange(1, len(dfAtLeastOneByAccident) + 1)
 
 # ##### Merging dataFrames post-DataManagement
 
-# In[164]:
+# In[20]:
 
 
 ##### Merging of tables into 1 pooled dataframe post-DataManagement (2 steps required)
@@ -333,11 +334,19 @@ dfPoolPostDataManagementTemp = pd.merge(dfLieux, dfCarac, on="Num_Acc")
 dfPoolPostDataManagement = pd.merge(dfPoolPostDataManagementTemp, dfAtLeastOneByAccident, on="Num_Acc")
 
 
-# In[171]:
+# In[21]:
+
+
+##### Removing latest variables
+dfPoolPostDataManagement = dfPoolPostDataManagement.drop(['Unnamed: 0.1_x', 'Unnamed: 0_x'], axis=1)
+
+
+# In[24]:
 
 
 ##### Export dataframe
-dfPoolPostDataManagement.to_csv('20221022_table_poolPostDataManagement_YAH.csv', index=False, sep=';')
+pathExport = 'D:\\jupyterDatasets\\'
+dfPoolPostDataManagement.to_csv(pathExport+'20221022_table_poolPostDataManagement_YAH.csv', index=False, sep=';')
 
 
 # ##### Verification transformation variables (Quality Check)
