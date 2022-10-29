@@ -123,14 +123,14 @@ print('dfCarac dimensions:', dfCarac.shape)
 
 # ##### Pooled datasets
 
-# In[77]:
+# In[4]:
 
 
 ##### Import of tables into dataframes
-dfPool = pd.read_csv('20221010_table_poolPostDataManagement_YAH_BPA.csv', sep=',')
+dfPool = pd.read_csv('20221024_table_poolPostDataManagement_YAH_BPA.csv', sep=',')
 
 
-# In[8]:
+# In[5]:
 
 
 print('dfPool dimensions:', dfPool.shape)
@@ -2027,16 +2027,23 @@ print(resMatrixVehicules)
 dfPool.head(3)
 
 
-# In[18]:
+# In[6]:
 
 
 dfPool.apply(pd.Series.value_counts)
 
 
-# In[19]:
+# In[25]:
 
 
-dfPool.info
+dfPool[dfPool.eq(-1).any(1)]
+# dfPool[dfPool.eq(-1).any(1)].iloc[:, 41: 50]
+
+
+# In[18]:
+
+
+dfPool.columns
 
 
 # In[22]:
@@ -2045,10 +2052,32 @@ dfPool.info
 dfPool.dtypes
 
 
-# In[104]:
+# ##### DataFrame with NA prevalence and p-value against gravGrp_2_34
+
+# In[33]:
 
 
-dfPool.surf.value_counts()
+dfPoolCCA = dfPool.dropna()
+(dfPoolCCA.isnull().sum() * 100 / len(dfPoolCCA)).sum()
+
+
+# In[79]:
+
+
+dfDescVarExpl = pd.DataFrame({'propNA':dfPool.isnull().sum() * 100 / len(dfPool), 
+                              'lenUnique':dfPool.apply(lambda x: len(x.unique()), axis=0)})
+
+
+# In[85]:
+
+
+dfDescVarExpl.sort_values('propNA', ascending=False).head(10)
+
+
+# In[86]:
+
+
+dfDescVarExpl.sort_values('lenUnique', ascending=False).head(10)
 
 
 # In[ ]:
