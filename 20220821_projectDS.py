@@ -2046,35 +2046,60 @@ dfPool[dfPool.eq(-1).any(1)]
 dfPool.columns
 
 
-# In[22]:
-
-
-dfPool.dtypes
-
-
 # ##### DataFrame with NA prevalence and p-value against gravGrp_2_34
 
-# In[33]:
+# In[129]:
 
 
+a = dfPool.iloc[:,38]
+print(len(a.unique()))
+a.value_counts()
+
+
+# In[132]:
+
+
+# Nouveau dataFrame sans NA
 dfPoolCCA = dfPool.dropna()
-(dfPoolCCA.isnull().sum() * 100 / len(dfPoolCCA)).sum()
+
+# Verification du nombre de NA
+print('NA count:', (dfPoolCCA.isnull().sum() * 100 / len(dfPoolCCA)).sum())
+print('Dim:', dfPoolCCA.shape)
 
 
-# In[79]:
+# In[135]:
 
 
+# Création du dataFrame qui permettra de faire la sélection de variables
 dfDescVarExpl = pd.DataFrame({'propNA':dfPool.isnull().sum() * 100 / len(dfPool), 
-                              'lenUnique':dfPool.apply(lambda x: len(x.unique()), axis=0)})
+                              'lenUnique':dfPool.apply(lambda x: len(x.unique()), axis=0),
+                              'type':['nonInf', 'nonInf', 'cat', 'cat', 'cat', 'cat', 
+                                      'cat', 'cat', 'cat', 'target', 'cat', 'bin', 
+                                      'bin', 'cat', 'cat', 'cat', 'nonInf', 'cat', 
+                                      'bin', 'cat', 'cat', 'cat', 'nonInf', 'nonInf', 
+                                      'target', 'nonInf', 'cat', 'cat', 'cat', 'nonInf', 
+                                      'cat', 'bin', 'bin', 'bin', 'target', 'target', 
+                                      'bin', 'bin', 'bin', 'bin', 'target', 'target', 
+                                      'num', 'num', 'num', 'num', 'num', 'num', 
+                                      'num', 'num', 'num', 'num', 'bin', 'bin', 
+                                      'bin', 'bin', 'num', 'bin', 'num', 'cat', 
+                                      'cat', 'cat']})
 
 
-# In[85]:
+# In[138]:
+
+
+# Création de la variable p-value
+dfDescVarExpl['pvalue'] = 1
+
+
+# In[139]:
 
 
 dfDescVarExpl.sort_values('propNA', ascending=False).head(10)
 
 
-# In[86]:
+# In[140]:
 
 
 dfDescVarExpl.sort_values('lenUnique', ascending=False).head(10)
