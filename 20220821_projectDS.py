@@ -43,10 +43,12 @@ import math
 
 from scipy.stats import pearsonr
 from scipy.stats import chi2_contingency
+import statsmodels.api
 
 from sklearn import model_selection
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import classification_report
+from sklearn.metrics import roc_curve, auc
 from sklearn import preprocessing
 
 from sklearn.linear_model import LinearRegression
@@ -2020,11 +2022,11 @@ print(resMatrixUsagers)
 print(resMatrixVehicules)
 
 
-# In[16]:
+# In[5]:
 
 
 ##### Describing dfPool
-dfPool.head(3)
+dfPool.head(2)
 
 
 # In[6]:
@@ -2033,7 +2035,7 @@ dfPool.head(3)
 dfPool.apply(pd.Series.value_counts)
 
 
-# In[25]:
+# In[5]:
 
 
 dfPool[dfPool.eq(-1).any(1)]
@@ -2048,7 +2050,7 @@ dfPool.columns
 
 # ##### DataFrame with NA prevalence and p-value against gravGrp_2_34
 
-# In[129]:
+# In[9]:
 
 
 a = dfPool.iloc[:,38]
@@ -2056,7 +2058,7 @@ print(len(a.unique()))
 a.value_counts()
 
 
-# In[132]:
+# In[6]:
 
 
 # Nouveau dataFrame sans NA
@@ -2067,7 +2069,7 @@ print('NA count:', (dfPoolCCA.isnull().sum() * 100 / len(dfPoolCCA)).sum())
 print('Dim:', dfPoolCCA.shape)
 
 
-# In[135]:
+# In[7]:
 
 
 # Création du dataFrame qui permettra de faire la sélection de variables
@@ -2083,23 +2085,37 @@ dfDescVarExpl = pd.DataFrame({'propNA':dfPool.isnull().sum() * 100 / len(dfPool)
                                       'num', 'num', 'num', 'num', 'num', 'num', 
                                       'num', 'num', 'num', 'num', 'bin', 'bin', 
                                       'bin', 'bin', 'num', 'bin', 'num', 'cat', 
-                                      'cat', 'cat']})
+                                      'cat', 'num']})
 
 
-# In[138]:
+# In[12]:
 
 
 # Création de la variable p-value
-dfDescVarExpl['pvalue'] = 1
+dfDescVarExpl['pvalue'] = np.nan
 
 
-# In[139]:
+# In[13]:
+
+
+### loop p-values over all variables
+for i in dfDescVarExpl.index:
+    varCateg = dfPoolCCA[i]
+    if dfDescVarExpl.type.loc[i] in ['bin', 'cat']:
+        table = pd.crosstab(dfPoolCCA['gravGrp_2_34'], varCateg)
+        dfDescVarExpl.pvalue.loc[i] = chi2_contingency(table)[1:2][0]
+    if dfDescVarExpl.type.loc[i] in ['num']:
+        result = statsmodels.formula.api.ols(i + ' ~ gravGrp_2_34', data=dfPoolCCA).fit()
+        dfDescVarExpl.pvalue.loc[i] = statsmodels.api.stats.anova_lm(result).loc['gravGrp_2_34'][4]
+
+
+# In[14]:
 
 
 dfDescVarExpl.sort_values('propNA', ascending=False).head(10)
 
 
-# In[140]:
+# In[15]:
 
 
 dfDescVarExpl.sort_values('lenUnique', ascending=False).head(10)
@@ -2114,21 +2130,83 @@ dfDescVarExpl.sort_values('lenUnique', ascending=False).head(10)
 # Il reste des données -1 (e.g. int)
 
 
-# In[105]:
+# In[92]:
+
+
+dfDescVarExpl[dfDescVarExpl.type=='num'].index
+
+
+# In[147]:
+
+
+dfDescVarExpl.loc[['num_veh', 'obsGrp', 'col']]
+
+
+# In[142]:
+
+
+dfPool['com'].value_counts()
+
+
+# In[8]:
+
+
+### Adding missing variables
+dfPool['etatpGrp_pieton_alone'] = np.where(dfPool.groupby('Num_Acc')['nb_etatpGrp_pieton_alone'].sum()>=1, 1, 0)
+dfPool['locpGrp_pieton_1'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_1'].sum()>=1, 1, 0)
+dfPool['locpGrp_pieton_3'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_3'].sum()>=1, 1, 0)
+dfPool['locpGrp_pieton_6'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_6'].sum()>=1, 1, 0)
+
+
+# In[18]:
 
 
 ##### Vcramer between variables - pooled dataset
 ### Initiating objects
-varList1Pool = ['prof', 'planGrp', 'surf', 'atm', 'situ', 
+# varList1Pool = ['prof', 'planGrp', 'surf', 'atm', 'situ', 
+#                 'vospGrp', 
+#                 'larroutGrp', 'lartpcGrp', 
+#                 'env1', 'catv_EPD_exist', 'catv_PL_exist', 
+#                 'obsGrp', 'trajet_coursesPromenade_conductor', 
+#                 'sexe_male_conductor', 'sexe_female_conductor', 
+#                 'int', 'intGrp', 'catv_train_exist', 'infra', 'agg', 'catr', 'hour', 'hourGrp', 'lum', 'com', 'dep', 'circ', 'nbvGrp', 
+#                 'catv_2_roues_exist', 'nbVeh', 'catu_pieton', 'col', 'populationGrp', 
+#                 'year', 'mois_label', 'jour', 
+#                 'weekday', 'dateWeekend', 'dateFerieAndWeekend', 'dateFerie']
+
+# Id: 'Num_Acc', 
+# Outcome: 'gravGrp_23_4', 'gravGrp_2_34', 'nb_grav4_by_acc', 'nb_grav3_by_acc', 
+
+# Removed (nonInformative): 'Unnamed: 0', 'date', 'dep', 'jour', 'grav_x', 'grav_y', 'year', 'mois', 'com', 
+# Removed (tooManyNA): 'lartpcGrp', 'ageMeanNonConductors', 'larroutGrp', 'env1', 
+# Removed (correlated): 'int', 'agg', 'catu_pieton', 'weekday', 'dateWeekend', 
+
+# Numeric removed (correlated): 'nb_sexe_male_conductor', 'nb_sexe_female_conductor', 'nb_catu_pieton', 
+#'hour', 'population_tot', 'nb_trajet_coursesPromenade_conductor', 
+#'nb_etatpGrp_pieton_alone', 'nb_locpGrp_pieton_1', 'nb_locpGrp_pieton_3', 'nb_locpGrp_pieton_6', 
+
+# Numeric kept: , 'choc_cote', 'ageMeanConductors', 'num_veh', 
+# Categorical kept:
+#                 'prof', 'planGrp', 'surf', 'atm', 
+#                 'vospGrp', 
+#                 'catv_EPD_exist', 'catv_PL_exist', 
+#                 'trajet_coursesPromenade_conductor',
+#                 'sexe_male_conductor', 'sexe_female_conductor', 
+#                 'intGrp', 'catv_train_exist', 'infra', 'catr', 'hourGrp', 'lum', 'circ', 'nbvGrp', 
+#                 'catv_2_roues_exist', 'col', 'obsGrp', 'situ', 'populationGrp', 
+#                 'mois_label', 'dateFerieAndWeekend', 'dateFerie',
+#                 'etatpGrp_pieton_alone', 'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6'
+
+varList1Pool = ['prof', 'planGrp', 'surf', 'atm', 
                 'vospGrp', 
-                'larroutGrp', 'lartpcGrp', 
-                'env1', 'catv_EPD_exist', 'catv_PL_exist', 
-                'obsGrp', 'trajet_coursesPromenade_conductor', 
+                'catv_EPD_exist', 'catv_PL_exist', 
+                'trajet_coursesPromenade_conductor',
                 'sexe_male_conductor', 'sexe_female_conductor', 
-                'int', 'intGrp', 'catv_train_exist', 'infra', 'agg', 'catr', 'hour', 'hourGrp', 'lum', 'com', 'dep', 'circ', 'nbvGrp', 
-                'catv_2_roues_exist', 'nbVeh', 'catu_pieton', 'col', 'populationGrp', 
-                'year', 'mois_label', 'jour', 
-                'weekday', 'dateWeekend', 'dateFerieAndWeekend', 'dateFerie']
+                'intGrp', 'catv_train_exist', 'infra', 'catr', 'hourGrp', 'lum', 'circ', 'nbvGrp', 
+                'catv_2_roues_exist', 'col', 'obsGrp', 'situ', 'populationGrp', 
+                'mois_label', 'dateFerieAndWeekend', 'dateFerie',
+                'etatpGrp_pieton_alone', 'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6'
+                ]
 varList2Pool = varList1Pool
 resMatrixPool = pd.DataFrame(np.zeros(shape=(len(varList1Pool), len(varList2Pool))), index=varList1Pool, columns=varList2Pool)
 
@@ -2139,18 +2217,82 @@ for i in varList1Pool:
         resMatrixPool[j][i] = round(V_cramer(tab, tab.sum().sum()), 2)
 
 
-# In[64]:
-
-
-resMatrixPool
-
-
-# In[106]:
+# In[19]:
 
 
 # Display VCramer dataframes
 fig, ax = plt.subplots(figsize=(20, 15))
 sns.heatmap(resMatrixPool, ax=ax);
+
+
+# In[9]:
+
+
+##### Uptdates before export
+### Removing -1 values
+dfPool = dfPool.replace(-1, np.nan)
+
+
+# In[ ]:
+
+
+### Adding missing variables
+dfPool['etatpGrp_pieton_alone'] = np.where(dfPool.groupby('Num_Acc')['nb_etatpGrp_pieton_alone'].sum()>=1, 1, 0)
+dfPool['locpGrp_pieton_1'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_1'].sum()>=1, 1, 0)
+dfPool['locpGrp_pieton_3'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_3'].sum()>=1, 1, 0)
+dfPool['locpGrp_pieton_6'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_6'].sum()>=1, 1, 0)
+
+
+# In[10]:
+
+
+### Modifying index
+dfPool = dfPool.set_index('Num_Acc')
+
+
+# In[11]:
+
+
+##### DataFrame for ML
+### Variables selection
+dfPoolML = dfPool[[
+                        # Variable à expliquer
+                    'gravGrp_2_34', 
+    
+                        # Variables explicatives
+                    'choc_cote', 'ageMeanConductors', 'num_veh', 
+                    'prof', 'planGrp', 'surf', 'atm', 
+                    'vospGrp', 
+                    'catv_EPD_exist', 'catv_PL_exist', 
+                    'trajet_coursesPromenade_conductor',
+                    'sexe_male_conductor', 'sexe_female_conductor', 
+                    'intGrp', 'catv_train_exist', 'infra', 'catr', 'hourGrp', 'lum', 'circ', 'nbvGrp', 
+                    'catv_2_roues_exist', 'col', 'obsGrp', 'situ', 'populationGrp', 
+                    'mois_label', 'dateFerieAndWeekend', 'dateFerie',
+                    'etatpGrp_pieton_alone', 'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']]
+
+### Removing NA values
+dfPoolMLCCA = dfPoolML.dropna()
+
+
+# In[45]:
+
+
+##### Export dataframe
+pathExport = 'D:\\jupyterDatasets\\'
+dfPoolMLCCA.to_csv(pathExport+'20221031_table_dfPoolMLCCA.csv', index=False, sep=';')
+
+
+# In[43]:
+
+
+dfPoolML.shape
+
+
+# In[44]:
+
+
+dfPoolMLCCA.shape
 
 
 # # --------------------------------------Pre-processing--------------------------------------
@@ -2210,16 +2352,23 @@ max(dfPoolML2_34noCorrNoNA.isnull().sum() * 100 / len(dfPoolML2_34noCorrNoNA))
 # - Immune to multi-collinearity
 # - Works with NA values
 
-# In[11]:
+# In[12]:
 
 
 # Defining target and features
-target_xgb = dfPoolML2_34.gravGrp_2_34
-features = dfPoolML2_34.drop('gravGrp_2_34', axis=1)
+target_xgb = dfPoolMLCCA.gravGrp_2_34
+features = dfPoolMLCCA.drop('gravGrp_2_34', axis=1)
 features_matrix = pd.get_dummies(features, drop_first=True)
 
 
-# In[15]:
+# In[14]:
+
+
+### Features
+features_matrix.columns
+
+
+# In[13]:
 
 
 # Verification of features length
@@ -2227,7 +2376,7 @@ print(len(set(features_matrix.columns)))
 print(len(features_matrix.columns))
 
 
-# In[14]:
+# In[15]:
 
 
 # Checking if any duplicate feature in the matrix and if so which ones
@@ -2271,7 +2420,7 @@ params = {'booster' : 'gbtree',
 xgb1 = xgb.train(params=params, dtrain=train, num_boost_round=50, evals=[(train, 'train'), (test, 'eval')])
 
 
-# In[24]:
+# In[21]:
 
 
 types = ['weight', 'gain', 'cover', 'total_gain', 'total_cover']
@@ -2280,53 +2429,60 @@ for f in types:
     xgb.plot_importance(xgb1 ,max_num_features=15, importance_type=f, title='importance: '+f);
 
 
-# In[34]:
+# In[71]:
+
+
+xgb_preds_train
+
+
+# In[63]:
 
 
 # Train
 preds_train = xgb1.predict(train)
-xgb_preds_train = pd.Series(np.where(preds_train > 0.5, 1, 0))
+xgb_preds_train = pd.Series(np.where(preds_train >= 0.5, 1, 0))
 # Test
 preds_test = xgb1.predict(test)
-xgb_preds_test = pd.Series(np.where(preds_test > 0.5, 1, 0))
+xgb_preds_test = pd.Series(np.where(preds_test >= 0.5, 1, 0))
 
 
-# In[41]:
+# In[74]:
+
+
+### From probabilities to binary
+# Train
+xgb_preds_train = []
+
+for i in preds_train:
+    if i>=0.5:
+        xgb_preds_train.append(1)
+    if i<0.5:
+        xgb_preds_train.append(0)
+
+# Test
+xgb_preds_test = []
+for i in preds_test:
+    if i>=0.5:
+        xgb_preds_test.append(1)
+    if i<0.5:
+        xgb_preds_test.append(0)
+
+
+# In[75]:
 
 
 # Train contingency table
-pd.crosstab(y_train, xgb_preds_train, colnames=['xgb_pred_train'])
+pd.crosstab(y_train, xgb_preds_train, colnames=['xgb_pred_train'], normalize=True)
 
 
-# In[42]:
-
-
-# Test contingency table
-pd.crosstab(y_test, xgb_preds_test, colnames=['xgb_pred_test'])
-
-
-# In[26]:
+# In[77]:
 
 
 # Test contingency table
-pd.crosstab(y_test, xgb_preds_test, normalize=True)
+pd.crosstab(y_test, xgb_preds_test, colnames=['xgb_pred_test'], normalize=True)
 
 
-# In[47]:
-
-
-print(16393+5972+11923+8562)
-print(271131+92147+179717+138470)
-
-
-# In[31]:
-
-
-print((271131+92147)/(271131+92147+179717+138470))
-print((16393+5972)/(16393+5972+11923+8562))
-
-
-# In[28]:
+# In[82]:
 
 
 # Performance criteria
@@ -2334,7 +2490,7 @@ print(classification_report(y_train, xgb_preds_train))
 print(classification_report(y_test, xgb_preds_test))
 
 
-# In[116]:
+# In[83]:
 
 
 rmse_train = np.sqrt(mean_squared_error(y_train, preds_train))
@@ -2343,29 +2499,51 @@ print("RMSE train: %f" % (rmse_train))
 print("RMSE test : %f" % (rmse_test))
 
 
+# In[87]:
+
+
+# AUC
+fpr_xgb, tpr_xgb, seuils = roc_curve(y_test, xgb_preds_test, pos_label=1)
+roc_auc_xgb = auc(fpr_xgb, tpr_xgb)
+roc_auc_xgb
+
+
+# In[89]:
+
+
+# ROC curve
+plt.figure(figsize=(4, 4))
+plt.plot(fpr_xgb, tpr_xgb, color='orange', lw=2, label=round(roc_auc_xgb, 2))
+plt.plot(np.arange(0, 1, 0.01), np.arange(0, 1, 0.01), 'b--', label='0.50')
+plt.ylabel('Taux vrais positifs')
+plt.xlabel('Taux faux positifs')
+plt.title('Courbe ROC')
+plt.legend(loc='lower right');
+
+
 # ### Logistic regression
 # - Sensitivte to multi-collinearity
 # - Doesn't work with NA values
 # - Only floats for predictions so a pd.get_dummies is required
 # - Standardization helps to not mislead variables range with their weight
 
-# In[74]:
+# In[90]:
 
 
 # Defining target and features
-target_lr = dfPoolML2_34noCorrNoNA.gravGrp_2_34
-features_lr = dfPoolML2_34noCorrNoNA.drop('gravGrp_2_34', axis=1)
+target_lr = dfPoolMLCCA.gravGrp_2_34
+features_lr = dfPoolMLCCA.drop('gravGrp_2_34', axis=1)
 features_matrix_lr = pd.get_dummies(features_lr, drop_first=True)
 
 
-# In[75]:
+# In[91]:
 
 
 ### Splitting into train & test
 X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix_lr, target_lr, test_size=0.2, random_state=1)
 
 
-# In[77]:
+# In[92]:
 
 
 # LR model
@@ -2375,19 +2553,19 @@ lr_pred_train = lr.predict(X_train)
 lr_pred_test = lr.predict(X_test)
 
 
-# In[82]:
+# In[93]:
 
 
 pd.crosstab(y_train, lr_pred_train>=0.5, normalize=True)
 
 
-# In[83]:
+# In[94]:
 
 
 pd.crosstab(y_test, lr_pred_test>=0.5, normalize=True)
 
 
-# In[79]:
+# In[95]:
 
 
 # Performance criteria
@@ -2395,7 +2573,7 @@ print(classification_report(y_train, lr_pred_train>=0.5))
 print(classification_report(y_test, lr_pred_test>=0.5))
 
 
-# In[91]:
+# In[96]:
 
 
 coeffs = list(lr.coef_)
@@ -2407,27 +2585,27 @@ feats.insert(0, 'intercept')
 pd.DataFrame({'valeur estimée': coeffs}, index=feats)
 
 
-# In[93]:
+# In[97]:
 
 
 print(lr.score(X_train, y_train))
 print(model_selection.cross_val_score(lr, X_train, y_train).mean())
 
 
-# In[96]:
+# In[98]:
 
 
-from sklearn.metrics import roc_curve, auc
 # AUC
 fpr, tpr, seuils = roc_curve(y_test, lr_pred_test, pos_label=1)
 roc_auc = auc(fpr, tpr)
 roc_auc
 
 
-# In[108]:
+# In[99]:
 
 
 # ROC curve
+plt.figure(figsize=(4, 4))
 plt.plot(fpr, tpr, color='orange', lw=2, label=round(roc_auc, 2))
 plt.plot(np.arange(0, 1, 0.01), np.arange(0, 1, 0.01), 'b--', label='0.50')
 plt.ylabel('Taux vrais positifs')
