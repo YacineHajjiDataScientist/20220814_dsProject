@@ -2225,7 +2225,7 @@ fig, ax = plt.subplots(figsize=(20, 15))
 sns.heatmap(resMatrixPool, ax=ax);
 
 
-# In[9]:
+# In[5]:
 
 
 ##### Uptdates before export
@@ -2233,7 +2233,7 @@ sns.heatmap(resMatrixPool, ax=ax);
 dfPool = dfPool.replace(-1, np.nan)
 
 
-# In[ ]:
+# In[6]:
 
 
 ### Adding missing variables
@@ -2243,14 +2243,14 @@ dfPool['locpGrp_pieton_3'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_piet
 dfPool['locpGrp_pieton_6'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_6'].sum()>=1, 1, 0)
 
 
-# In[10]:
+# In[7]:
 
 
 ### Modifying index
 dfPool = dfPool.set_index('Num_Acc')
 
 
-# In[11]:
+# In[8]:
 
 
 ##### DataFrame for ML
@@ -2352,16 +2352,16 @@ max(dfPoolML2_34noCorrNoNA.isnull().sum() * 100 / len(dfPoolML2_34noCorrNoNA))
 # - Immune to multi-collinearity
 # - Works with NA values
 
-# In[12]:
+# In[11]:
 
 
 # Defining target and features
-target_xgb = dfPoolMLCCA.gravGrp_2_34
+target = dfPoolMLCCA.gravGrp_2_34
 features = dfPoolMLCCA.drop('gravGrp_2_34', axis=1)
 features_matrix = pd.get_dummies(features, drop_first=True)
 
 
-# In[14]:
+# In[12]:
 
 
 ### Features
@@ -2376,7 +2376,7 @@ print(len(set(features_matrix.columns)))
 print(len(features_matrix.columns))
 
 
-# In[15]:
+# In[14]:
 
 
 # Checking if any duplicate feature in the matrix and if so which ones
@@ -2384,34 +2384,34 @@ duplicate_columns = features_matrix.columns[features_matrix.columns.duplicated()
 duplicate_columns
 
 
-# In[16]:
+# In[15]:
 
 
 ### Splitting into train & test
-X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix, target_xgb, test_size=0.2, random_state=1)
+X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix, target, test_size=0.2, random_state=1)
 
 
-# In[17]:
+# In[16]:
 
 
 X_train.columns
 
 
-# In[18]:
+# In[17]:
 
 
 print(X_train.shape)
 print(X_test.shape)
 
 
-# In[19]:
+# In[18]:
 
 
 train = xgb.DMatrix(data=X_train, label=y_train)
 test = xgb.DMatrix(data=X_test, label=y_test)
 
 
-# In[20]:
+# In[19]:
 
 
 params = {'booster' : 'gbtree', 
@@ -2420,7 +2420,7 @@ params = {'booster' : 'gbtree',
 xgb1 = xgb.train(params=params, dtrain=train, num_boost_round=50, evals=[(train, 'train'), (test, 'eval')])
 
 
-# In[21]:
+# In[20]:
 
 
 types = ['weight', 'gain', 'cover', 'total_gain', 'total_cover']
@@ -2429,77 +2429,71 @@ for f in types:
     xgb.plot_importance(xgb1 ,max_num_features=15, importance_type=f, title='importance: '+f);
 
 
-# In[71]:
-
-
-xgb_preds_train
-
-
-# In[63]:
+# In[29]:
 
 
 # Train
-preds_train = xgb1.predict(train)
-xgb_preds_train = pd.Series(np.where(preds_train >= 0.5, 1, 0))
+xgb_preds_train = xgb1.predict(train)
+xgb_preds_train_bin = pd.Series(np.where(xgb_preds_train >= 0.5, 1, 0))
 # Test
-preds_test = xgb1.predict(test)
-xgb_preds_test = pd.Series(np.where(preds_test >= 0.5, 1, 0))
+xgb_preds_test = xgb1.predict(test)
+xgb_preds_test_bin = pd.Series(np.where(xgb_preds_test >= 0.5, 1, 0))
 
 
-# In[74]:
+# In[31]:
 
 
 ### From probabilities to binary
 # Train
-xgb_preds_train = []
+xgb_preds_train_bin = []
 
-for i in preds_train:
+for i in xgb_preds_train:
     if i>=0.5:
-        xgb_preds_train.append(1)
+        xgb_preds_train_bin.append(1)
     if i<0.5:
-        xgb_preds_train.append(0)
+        xgb_preds_train_bin.append(0)
 
 # Test
-xgb_preds_test = []
-for i in preds_test:
+xgb_preds_test_bin = []
+for i in xgb_preds_test:
     if i>=0.5:
-        xgb_preds_test.append(1)
+        xgb_preds_test_bin.append(1)
     if i<0.5:
-        xgb_preds_test.append(0)
+        xgb_preds_test_bin.append(0)
 
 
-# In[75]:
+# In[32]:
 
 
 # Train contingency table
-pd.crosstab(y_train, xgb_preds_train, colnames=['xgb_pred_train'], normalize=True)
+pd.crosstab(y_train, xgb_preds_train_bin, colnames=['xgb_pred_train'], normalize=True)
 
 
-# In[77]:
+# In[34]:
 
 
 # Test contingency table
-pd.crosstab(y_test, xgb_preds_test, colnames=['xgb_pred_test'], normalize=True)
+pd.crosstab(y_test, xgb_preds_test_bin, colnames=['xgb_pred_test'], normalize=True)
 
 
-# In[82]:
+# In[36]:
 
 
 # Performance criteria
-print(classification_report(y_train, xgb_preds_train))
-print(classification_report(y_test, xgb_preds_test))
+print(classification_report(y_train, xgb_preds_train_bin))
+print(classification_report(y_test, xgb_preds_test_bin))
 
 
-# In[83]:
+# In[37]:
 
 
-rmse_train = np.sqrt(mean_squared_error(y_train, preds_train))
-rmse_test = np.sqrt(mean_squared_error(y_test, preds_test))
+rmse_train = np.sqrt(mean_squared_error(y_train, xgb_preds_train))
+rmse_test = np.sqrt(mean_squared_error(y_test, xgb_preds_test))
 print("RMSE train: %f" % (rmse_train))
 print("RMSE test : %f" % (rmse_test))
 
 
-# In[87]:
+# In[38]:
 
 
 # AUC
@@ -2508,7 +2502,7 @@ roc_auc_xgb = auc(fpr_xgb, tpr_xgb)
 roc_auc_xgb
 
 
-# In[89]:
+# In[39]:
 
 
 # ROC curve
@@ -2531,19 +2525,19 @@ plt.legend(loc='lower right');
 
 
 # Defining target and features
-target_lr = dfPoolMLCCA.gravGrp_2_34
-features_lr = dfPoolMLCCA.drop('gravGrp_2_34', axis=1)
-features_matrix_lr = pd.get_dummies(features_lr, drop_first=True)
+# target_lr = dfPoolMLCCA.gravGrp_2_34
+# features_lr = dfPoolMLCCA.drop('gravGrp_2_34', axis=1)
+# features_matrix_lr = pd.get_dummies(features_lr, drop_first=True)
 
 
-# In[91]:
+# In[40]:
 
 
 ### Splitting into train & test
-X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix_lr, target_lr, test_size=0.2, random_state=1)
+X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix, target, test_size=0.2, random_state=1)
 
 
-# In[92]:
+# In[41]:
 
 
 # LR model
@@ -2553,19 +2547,19 @@ lr_pred_train = lr.predict(X_train)
 lr_pred_test = lr.predict(X_test)
 
 
-# In[93]:
+# In[42]:
 
 
 pd.crosstab(y_train, lr_pred_train>=0.5, normalize=True)
 
 
-# In[94]:
+# In[43]:
 
 
 pd.crosstab(y_test, lr_pred_test>=0.5, normalize=True)
 
 
-# In[95]:
+# In[44]:
 
 
 # Performance criteria
@@ -2573,7 +2567,7 @@ print(classification_report(y_train, lr_pred_train>=0.5))
 print(classification_report(y_test, lr_pred_test>=0.5))
 
 
-# In[96]:
+# In[45]:
 
 
 coeffs = list(lr.coef_)
@@ -2585,14 +2579,14 @@ feats.insert(0, 'intercept')
 pd.DataFrame({'valeur estimée': coeffs}, index=feats)
 
 
-# In[97]:
+# In[46]:
 
 
 print(lr.score(X_train, y_train))
 print(model_selection.cross_val_score(lr, X_train, y_train).mean())
 
 
-# In[98]:
+# In[48]:
 
 
 # AUC
@@ -2601,7 +2595,7 @@ roc_auc = auc(fpr, tpr)
 roc_auc
 
 
-# In[99]:
+# In[49]:
 
 
 # ROC curve
