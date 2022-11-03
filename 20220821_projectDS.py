@@ -125,14 +125,14 @@ print('dfCarac dimensions:', dfCarac.shape)
 
 # ##### Pooled datasets
 
-# In[4]:
+# In[5]:
 
 
 ##### Import of tables into dataframes
 dfPool = pd.read_csv('20221024_table_poolPostDataManagement_YAH_BPA.csv', sep=',')
 
 
-# In[5]:
+# In[6]:
 
 
 print('dfPool dimensions:', dfPool.shape)
@@ -2035,7 +2035,7 @@ dfPool.head(2)
 dfPool.apply(pd.Series.value_counts)
 
 
-# In[5]:
+# In[10]:
 
 
 dfPool[dfPool.eq(-1).any(1)]
@@ -2148,7 +2148,7 @@ dfDescVarExpl.loc[['num_veh', 'obsGrp', 'col']]
 dfPool['com'].value_counts()
 
 
-# In[8]:
+# In[7]:
 
 
 ### Adding missing variables
@@ -2225,7 +2225,7 @@ fig, ax = plt.subplots(figsize=(20, 15))
 sns.heatmap(resMatrixPool, ax=ax);
 
 
-# In[5]:
+# In[9]:
 
 
 ##### Uptdates before export
@@ -2243,14 +2243,37 @@ dfPool['locpGrp_pieton_3'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_piet
 dfPool['locpGrp_pieton_6'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_6'].sum()>=1, 1, 0)
 
 
-# In[7]:
+# In[63]:
+
+
+### Modifying variables type
+dfPool[['gravGrp_2_34', 'etatpGrp_pieton_alone', 'prof', 'circ', 'planGrp', 'surf', 'atm', 'vospGrp', 'catv_EPD_exist',
+        'catv_PL_exist', 
+        'trajet_coursesPromenade_conductor', 'sexe_male_conductor', 'sexe_female_conductor', 'catv_train_exist',
+        'infra', 'catr', 'lum', 'catv_2_roues_exist', 'col', 'situ', 'dateFerieAndWeekend', 'dateFerie',
+        'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']] = dfPool[['gravGrp_2_34', 'etatpGrp_pieton_alone', 
+        'prof', 'circ', 'planGrp', 'surf', 'atm', 'vospGrp', 'catv_EPD_exist', 
+        'catv_PL_exist', 
+        'trajet_coursesPromenade_conductor', 'sexe_male_conductor', 'sexe_female_conductor', 'catv_train_exist',
+        'infra', 'catr', 'lum', 'catv_2_roues_exist', 'col', 'situ', 'dateFerieAndWeekend', 'dateFerie',
+        'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']].astype(object)
+
+
+# In[70]:
+
+
+### Renaming variables
+dfPool = dfPool.rename(columns={'num_veh': 'nbVeh'})
+
+
+# In[11]:
 
 
 ### Modifying index
 dfPool = dfPool.set_index('Num_Acc')
 
 
-# In[8]:
+# In[73]:
 
 
 ##### DataFrame for ML
@@ -2260,7 +2283,7 @@ dfPoolML = dfPool[[
                     'gravGrp_2_34', 
     
                         # Variables explicatives
-                    'choc_cote', 'ageMeanConductors', 'num_veh', 
+                    'choc_cote', 'ageMeanConductors', 'nbVeh', 
                     'prof', 'planGrp', 'surf', 'atm', 
                     'vospGrp', 
                     'catv_EPD_exist', 'catv_PL_exist', 
@@ -2281,6 +2304,12 @@ dfPoolMLCCA = dfPoolML.dropna()
 ##### Export dataframe
 pathExport = 'D:\\jupyterDatasets\\'
 dfPoolMLCCA.to_csv(pathExport+'20221031_table_dfPoolMLCCA.csv', index=False, sep=';')
+
+
+# In[72]:
+
+
+dfPoolMLCCA.dtypes
 
 
 # In[43]:
