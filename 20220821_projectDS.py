@@ -125,7 +125,7 @@ print('dfCarac dimensions:', dfCarac.shape)
 
 # ##### Pooled datasets
 
-# In[5]:
+# In[4]:
 
 
 ##### Import of tables into dataframes
@@ -2035,7 +2035,7 @@ dfPool.head(2)
 dfPool.apply(pd.Series.value_counts)
 
 
-# In[10]:
+# In[5]:
 
 
 dfPool[dfPool.eq(-1).any(1)]
@@ -2148,7 +2148,7 @@ dfDescVarExpl.loc[['num_veh', 'obsGrp', 'col']]
 dfPool['com'].value_counts()
 
 
-# In[7]:
+# In[6]:
 
 
 ### Adding missing variables
@@ -2225,7 +2225,7 @@ fig, ax = plt.subplots(figsize=(20, 15))
 sns.heatmap(resMatrixPool, ax=ax);
 
 
-# In[9]:
+# In[7]:
 
 
 ##### Uptdates before export
@@ -2243,7 +2243,7 @@ dfPool['locpGrp_pieton_3'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_piet
 dfPool['locpGrp_pieton_6'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_6'].sum()>=1, 1, 0)
 
 
-# In[63]:
+# In[8]:
 
 
 ### Modifying variables type
@@ -2259,21 +2259,21 @@ dfPool[['gravGrp_2_34', 'etatpGrp_pieton_alone', 'prof', 'circ', 'planGrp', 'sur
         'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']].astype(object)
 
 
-# In[70]:
+# In[9]:
 
 
 ### Renaming variables
 dfPool = dfPool.rename(columns={'num_veh': 'nbVeh'})
 
 
-# In[11]:
+# In[10]:
 
 
 ### Modifying index
 dfPool = dfPool.set_index('Num_Acc')
 
 
-# In[73]:
+# In[11]:
 
 
 ##### DataFrame for ML
@@ -2298,7 +2298,7 @@ dfPoolML = dfPool[[
 dfPoolMLCCA = dfPoolML.dropna()
 
 
-# In[45]:
+# In[102]:
 
 
 ##### Export dataframe
@@ -2306,19 +2306,19 @@ pathExport = 'D:\\jupyterDatasets\\'
 dfPoolMLCCA.to_csv(pathExport+'20221031_table_dfPoolMLCCA.csv', index=False, sep=';')
 
 
-# In[72]:
+# In[12]:
 
 
 dfPoolMLCCA.dtypes
 
 
-# In[43]:
+# In[13]:
 
 
 dfPoolML.shape
 
 
-# In[44]:
+# In[14]:
 
 
 dfPoolMLCCA.shape
@@ -2381,7 +2381,7 @@ max(dfPoolML2_34noCorrNoNA.isnull().sum() * 100 / len(dfPoolML2_34noCorrNoNA))
 # - Immune to multi-collinearity
 # - Works with NA values
 
-# In[11]:
+# In[15]:
 
 
 # Defining target and features
@@ -2390,7 +2390,7 @@ features = dfPoolMLCCA.drop('gravGrp_2_34', axis=1)
 features_matrix = pd.get_dummies(features, drop_first=True)
 
 
-# In[12]:
+# In[16]:
 
 
 ### Features
@@ -2405,7 +2405,7 @@ print(len(set(features_matrix.columns)))
 print(len(features_matrix.columns))
 
 
-# In[14]:
+# In[18]:
 
 
 # Checking if any duplicate feature in the matrix and if so which ones
@@ -2413,34 +2413,34 @@ duplicate_columns = features_matrix.columns[features_matrix.columns.duplicated()
 duplicate_columns
 
 
-# In[15]:
+# In[19]:
 
 
 ### Splitting into train & test
 X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix, target, test_size=0.2, random_state=1)
 
 
-# In[16]:
+# In[20]:
 
 
 X_train.columns
 
 
-# In[17]:
+# In[21]:
 
 
 print(X_train.shape)
 print(X_test.shape)
 
 
-# In[18]:
+# In[22]:
 
 
 train = xgb.DMatrix(data=X_train, label=y_train)
 test = xgb.DMatrix(data=X_test, label=y_test)
 
 
-# In[19]:
+# In[23]:
 
 
 params = {'booster' : 'gbtree', 
@@ -2449,27 +2449,54 @@ params = {'booster' : 'gbtree',
 xgb1 = xgb.train(params=params, dtrain=train, num_boost_round=50, evals=[(train, 'train'), (test, 'eval')])
 
 
-# In[20]:
+# In[109]:
+
+
+len(X_train.columns)
+
+
+# In[111]:
+
+
+fig, ax = plt.subplots(figsize=(20, 20))
+xgb.plot_importance(xgb1, max_num_features=97, importance_type='weight', title='importance: weight', ax=ax);
+
+
+# In[112]:
+
+
+fig, ax = plt.subplots(figsize=(20, 20))
+xgb.plot_importance(xgb1, max_num_features=97, importance_type='gain', title='importance: weight', ax=ax);
+
+
+# In[113]:
+
+
+fig, ax = plt.subplots(figsize=(20, 20))
+xgb.plot_importance(xgb1, max_num_features=97, importance_type='cover', title='importance: weight', ax=ax);
+
+
+# In[104]:
 
 
 types = ['weight', 'gain', 'cover', 'total_gain', 'total_cover']
 
 for f in types:
-    xgb.plot_importance(xgb1 ,max_num_features=15, importance_type=f, title='importance: '+f);
+    xgb.plot_importance(xgb1, max_num_features=15, importance_type=f, title='importance: '+f);
 
 
-# In[29]:
+# In[74]:
 
 
 # Train
 xgb_preds_train = xgb1.predict(train)
-xgb_preds_train_bin = pd.Series(np.where(xgb_preds_train >= 0.5, 1, 0))
+xgb_preds_train_bin = np.where(xgb_preds_train >= 0.5, 1, 0)
 # Test
 xgb_preds_test = xgb1.predict(test)
-xgb_preds_test_bin = pd.Series(np.where(xgb_preds_test >= 0.5, 1, 0))
+xgb_preds_test_bin = np.where(xgb_preds_test >= 0.5, 1, 0)
 
 
-# In[31]:
+# In[47]:
 
 
 ### From probabilities to binary
@@ -2491,29 +2518,29 @@ for i in xgb_preds_test:
         xgb_preds_test_bin.append(0)
 
 
-# In[32]:
+# In[49]:
 
 
 # Train contingency table
 pd.crosstab(y_train, xgb_preds_train_bin, colnames=['xgb_pred_train'], normalize=True)
 
 
-# In[34]:
+# In[95]:
 
 
 # Test contingency table
 pd.crosstab(y_test, xgb_preds_test_bin, colnames=['xgb_pred_test'], normalize=True)
 
 
-# In[36]:
+# In[96]:
 
 
 # Performance criteria
-print(classification_report(y_train, xgb_preds_train_bin))
-print(classification_report(y_test, xgb_preds_test_bin))
+print(classification_report(y_train.astype('int'), xgb_preds_train_bin))
+print(classification_report(y_test.astype('int'), xgb_preds_test_bin))
 
 
-# In[37]:
+# In[97]:
 
 
 rmse_train = np.sqrt(mean_squared_error(y_train, xgb_preds_train))
@@ -2522,16 +2549,16 @@ print("RMSE train: %f" % (rmse_train))
 print("RMSE test : %f" % (rmse_test))
 
 
-# In[38]:
+# In[100]:
 
 
 # AUC
-fpr_xgb, tpr_xgb, seuils = roc_curve(y_test, xgb_preds_test, pos_label=1)
+fpr_xgb, tpr_xgb, seuils = roc_curve(y_test.astype('int'), xgb_preds_test, pos_label=1)
 roc_auc_xgb = auc(fpr_xgb, tpr_xgb)
 roc_auc_xgb
 
 
-# In[39]:
+# In[101]:
 
 
 # ROC curve
