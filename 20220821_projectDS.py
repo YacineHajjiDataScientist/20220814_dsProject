@@ -40,6 +40,7 @@ import seaborn as sns
 import dill
 import datetime
 import math
+import itertools
 
 from scipy.stats import pearsonr
 from scipy.stats import chi2_contingency
@@ -132,7 +133,7 @@ print('dfCarac dimensions:', dfCarac.shape)
 dfPool = pd.read_csv('20221024_table_poolPostDataManagement_YAH_BPA.csv', sep=',')
 
 
-# In[6]:
+# In[5]:
 
 
 print('dfPool dimensions:', dfPool.shape)
@@ -2225,7 +2226,7 @@ fig, ax = plt.subplots(figsize=(20, 15))
 sns.heatmap(resMatrixPool, ax=ax);
 
 
-# In[7]:
+# In[6]:
 
 
 ##### Uptdates before export
@@ -2233,7 +2234,7 @@ sns.heatmap(resMatrixPool, ax=ax);
 dfPool = dfPool.replace(-1, np.nan)
 
 
-# In[6]:
+# In[7]:
 
 
 ### Adding missing variables
@@ -2243,15 +2244,15 @@ dfPool['locpGrp_pieton_3'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_piet
 dfPool['locpGrp_pieton_6'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_6'].sum()>=1, 1, 0)
 
 
-# In[8]:
+# In[9]:
 
 
 ### Modifying variables type
-dfPool[['gravGrp_2_34', 'etatpGrp_pieton_alone', 'prof', 'circ', 'planGrp', 'surf', 'atm', 'vospGrp', 'catv_EPD_exist',
+dfPool[['etatpGrp_pieton_alone', 'prof', 'circ', 'planGrp', 'surf', 'atm', 'vospGrp', 'catv_EPD_exist',
         'catv_PL_exist', 
         'trajet_coursesPromenade_conductor', 'sexe_male_conductor', 'sexe_female_conductor', 'catv_train_exist',
         'infra', 'catr', 'lum', 'catv_2_roues_exist', 'col', 'situ', 'dateFerieAndWeekend', 'dateFerie',
-        'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']] = dfPool[['gravGrp_2_34', 'etatpGrp_pieton_alone', 
+        'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']] = dfPool[['etatpGrp_pieton_alone', 
         'prof', 'circ', 'planGrp', 'surf', 'atm', 'vospGrp', 'catv_EPD_exist', 
         'catv_PL_exist', 
         'trajet_coursesPromenade_conductor', 'sexe_male_conductor', 'sexe_female_conductor', 'catv_train_exist',
@@ -2259,21 +2260,21 @@ dfPool[['gravGrp_2_34', 'etatpGrp_pieton_alone', 'prof', 'circ', 'planGrp', 'sur
         'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']].astype(object)
 
 
-# In[9]:
+# In[10]:
 
 
 ### Renaming variables
 dfPool = dfPool.rename(columns={'num_veh': 'nbVeh'})
 
 
-# In[10]:
+# In[11]:
 
 
 ### Modifying index
 dfPool = dfPool.set_index('Num_Acc')
 
 
-# In[11]:
+# In[12]:
 
 
 ##### DataFrame for ML
@@ -2298,27 +2299,36 @@ dfPoolML = dfPool[[
 dfPoolMLCCA = dfPoolML.dropna()
 
 
-# In[102]:
+# In[14]:
 
 
 ##### Export dataframe
-pathExport = 'D:\\jupyterDatasets\\'
-dfPoolMLCCA.to_csv(pathExport+'20221031_table_dfPoolMLCCA.csv', index=False, sep=';')
+# pathExport = 'D:\\jupyterDatasets\\'
+# dfPoolMLCCA.to_csv(pathExport+'20221031_table_dfPoolMLCCA.csv', index=False, sep=';')
+# pickle format for dtypes remaining the same
+dfPoolMLCCA.to_pickle('D:\\jupyterDatasets\\20221031_table_dfPoolMLCCA.csv')
 
 
-# In[12]:
+# In[ ]:
 
 
-dfPoolMLCCA.dtypes
+# # load
+# dfTemp = pd.read_pickle('D:\\jupyterDatasets\\20221031_table_dfPoolMLCCA.csv')
 
 
 # In[13]:
 
 
+dfPoolMLCCA.dtypes
+
+
+# In[15]:
+
+
 dfPoolML.shape
 
 
-# In[14]:
+# In[16]:
 
 
 dfPoolMLCCA.shape
@@ -2381,7 +2391,7 @@ max(dfPoolML2_34noCorrNoNA.isnull().sum() * 100 / len(dfPoolML2_34noCorrNoNA))
 # - Immune to multi-collinearity
 # - Works with NA values
 
-# In[15]:
+# In[33]:
 
 
 # Defining target and features
@@ -2390,14 +2400,14 @@ features = dfPoolMLCCA.drop('gravGrp_2_34', axis=1)
 features_matrix = pd.get_dummies(features, drop_first=True)
 
 
-# In[16]:
+# In[34]:
 
 
 ### Features
 features_matrix.columns
 
 
-# In[13]:
+# In[35]:
 
 
 # Verification of features length
@@ -2405,7 +2415,7 @@ print(len(set(features_matrix.columns)))
 print(len(features_matrix.columns))
 
 
-# In[18]:
+# In[36]:
 
 
 # Checking if any duplicate feature in the matrix and if so which ones
@@ -2413,34 +2423,34 @@ duplicate_columns = features_matrix.columns[features_matrix.columns.duplicated()
 duplicate_columns
 
 
-# In[19]:
+# In[37]:
 
 
 ### Splitting into train & test
 X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix, target, test_size=0.2, random_state=1)
 
 
-# In[20]:
+# In[38]:
 
 
 X_train.columns
 
 
-# In[21]:
+# In[39]:
 
 
 print(X_train.shape)
 print(X_test.shape)
 
 
-# In[22]:
+# In[40]:
 
 
 train = xgb.DMatrix(data=X_train, label=y_train)
 test = xgb.DMatrix(data=X_test, label=y_test)
 
 
-# In[23]:
+# In[68]:
 
 
 params = {'booster' : 'gbtree', 
@@ -2449,31 +2459,86 @@ params = {'booster' : 'gbtree',
 xgb1 = xgb.train(params=params, dtrain=train, num_boost_round=50, evals=[(train, 'train'), (test, 'eval')])
 
 
-# In[109]:
+# In[42]:
 
 
 len(X_train.columns)
 
 
-# In[111]:
+# In[110]:
 
 
-fig, ax = plt.subplots(figsize=(20, 20))
-xgb.plot_importance(xgb1, max_num_features=97, importance_type='weight', title='importance: weight', ax=ax);
+### Feature importance of xgboost
+xgb1_weight = pd.DataFrame(xgb1.get_score(importance_type='weight').items(), columns=['weight', 'value']).sort_values('value', ascending=False)
+xgb1_gain = pd.DataFrame(xgb1.get_score(importance_type='gain').items(), columns=['gain', 'value']).sort_values('value', ascending=False)
+xgb1_cover = pd.DataFrame(xgb1.get_score(importance_type='cover').items(), columns=['cover', 'value']).sort_values('value', ascending=False)
+xgb1_gain_total = pd.DataFrame(xgb1.get_score(importance_type='total_gain').items(), columns=['total_gain', 'value']).sort_values('value', ascending=False)
+xgb1_cover_total = pd.DataFrame(xgb1.get_score(importance_type='total_cover').items(), columns=['total_cover', 'value']).sort_values('value', ascending=False)
 
 
-# In[112]:
+# In[114]:
 
 
-fig, ax = plt.subplots(figsize=(20, 20))
-xgb.plot_importance(xgb1, max_num_features=97, importance_type='gain', title='importance: weight', ax=ax);
+### Combining 27 least informative features of xgboost
+xgb1_27_last_features = pd.concat([xgb1_weight[['weight']].reset_index(drop=True), 
+                                   xgb1_gain[['gain']].reset_index(drop=True), 
+                                   xgb1_cover[['cover']].reset_index(drop=True), 
+                                   xgb1_gain_total[['total_gain']].reset_index(drop=True), 
+                                   xgb1_cover_total[['total_cover']].reset_index(drop=True)], axis=1).tail(27)
+
+
+# In[138]:
+
+
+### 27 least informative features
+xgb1_27_last_features
+
+
+# In[137]:
+
+
+### Ranking how many time each feature was ranked as the least informative
+xgb1_list_27_last_features = itertools.chain(xgb1_27_last_features.weight.values.tolist(), 
+ xgb1_27_last_features.gain.values.tolist(), 
+ xgb1_27_last_features.cover.values.tolist(), 
+ xgb1_27_last_features.total_gain.values.tolist(), 
+ xgb1_27_last_features.total_cover.values.tolist())
+pd.DataFrame(list(xgb1_list_27_last_features)).value_counts().head(27)
 
 
 # In[113]:
 
 
 fig, ax = plt.subplots(figsize=(20, 20))
-xgb.plot_importance(xgb1, max_num_features=97, importance_type='cover', title='importance: weight', ax=ax);
+xgb.plot_importance(xgb1, max_num_features=97, importance_type='weight', title='importance: weight', ax=ax);
+
+
+# In[77]:
+
+
+fig, ax = plt.subplots(figsize=(20, 20))
+xgb.plot_importance(xgb1, max_num_features=97, importance_type='gain', title='importance: gain', ax=ax);
+
+
+# In[78]:
+
+
+fig, ax = plt.subplots(figsize=(20, 20))
+xgb.plot_importance(xgb1, max_num_features=97, importance_type='cover', title='importance: cover', ax=ax);
+
+
+# In[79]:
+
+
+fig, ax = plt.subplots(figsize=(20, 20))
+xgb.plot_importance(xgb1, max_num_features=97, importance_type='total_gain', title='importance: total_gain', ax=ax);
+
+
+# In[80]:
+
+
+fig, ax = plt.subplots(figsize=(20, 20))
+xgb.plot_importance(xgb1, max_num_features=97, importance_type='total_cover', title='importance: total_cover', ax=ax);
 
 
 # In[104]:
@@ -2485,7 +2550,7 @@ for f in types:
     xgb.plot_importance(xgb1, max_num_features=15, importance_type=f, title='importance: '+f);
 
 
-# In[74]:
+# In[69]:
 
 
 # Train
@@ -2496,7 +2561,7 @@ xgb_preds_test = xgb1.predict(test)
 xgb_preds_test_bin = np.where(xgb_preds_test >= 0.5, 1, 0)
 
 
-# In[47]:
+# In[61]:
 
 
 ### From probabilities to binary
@@ -2518,21 +2583,21 @@ for i in xgb_preds_test:
         xgb_preds_test_bin.append(0)
 
 
-# In[49]:
+# In[70]:
 
 
 # Train contingency table
 pd.crosstab(y_train, xgb_preds_train_bin, colnames=['xgb_pred_train'], normalize=True)
 
 
-# In[95]:
+# In[71]:
 
 
 # Test contingency table
 pd.crosstab(y_test, xgb_preds_test_bin, colnames=['xgb_pred_test'], normalize=True)
 
 
-# In[96]:
+# In[72]:
 
 
 # Performance criteria
@@ -2540,7 +2605,7 @@ print(classification_report(y_train.astype('int'), xgb_preds_train_bin))
 print(classification_report(y_test.astype('int'), xgb_preds_test_bin))
 
 
-# In[97]:
+# In[73]:
 
 
 rmse_train = np.sqrt(mean_squared_error(y_train, xgb_preds_train))
@@ -2549,7 +2614,7 @@ print("RMSE train: %f" % (rmse_train))
 print("RMSE test : %f" % (rmse_test))
 
 
-# In[100]:
+# In[74]:
 
 
 # AUC
@@ -2558,7 +2623,7 @@ roc_auc_xgb = auc(fpr_xgb, tpr_xgb)
 roc_auc_xgb
 
 
-# In[101]:
+# In[75]:
 
 
 # ROC curve
@@ -2586,14 +2651,14 @@ plt.legend(loc='lower right');
 # features_matrix_lr = pd.get_dummies(features_lr, drop_first=True)
 
 
-# In[40]:
+# In[50]:
 
 
 ### Splitting into train & test
 X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix, target, test_size=0.2, random_state=1)
 
 
-# In[41]:
+# In[51]:
 
 
 # LR model
@@ -2603,19 +2668,19 @@ lr_pred_train = lr.predict(X_train)
 lr_pred_test = lr.predict(X_test)
 
 
-# In[42]:
+# In[52]:
 
 
 pd.crosstab(y_train, lr_pred_train>=0.5, normalize=True)
 
 
-# In[43]:
+# In[53]:
 
 
 pd.crosstab(y_test, lr_pred_test>=0.5, normalize=True)
 
 
-# In[44]:
+# In[54]:
 
 
 # Performance criteria
@@ -2623,7 +2688,7 @@ print(classification_report(y_train, lr_pred_train>=0.5))
 print(classification_report(y_test, lr_pred_test>=0.5))
 
 
-# In[45]:
+# In[55]:
 
 
 coeffs = list(lr.coef_)
@@ -2635,14 +2700,14 @@ feats.insert(0, 'intercept')
 pd.DataFrame({'valeur estimée': coeffs}, index=feats)
 
 
-# In[46]:
+# In[56]:
 
 
 print(lr.score(X_train, y_train))
 print(model_selection.cross_val_score(lr, X_train, y_train).mean())
 
 
-# In[48]:
+# In[57]:
 
 
 # AUC
@@ -2651,7 +2716,7 @@ roc_auc = auc(fpr, tpr)
 roc_auc
 
 
-# In[49]:
+# In[58]:
 
 
 # ROC curve
