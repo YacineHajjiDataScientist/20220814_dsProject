@@ -3,12 +3,9 @@
 
 # # To do
 
-# + complete template with variables update completion
-# + Start encoding variables
-# + Merger les bases
-# + VCramer on merged dataset
+# + Selection des 70 meilleures features
 # + Faire un modèle basique
-# + Parmi les variables gardées, faire une relation entre celles qui sont fortement liées dans la base de données finale (e.g. node features graph)
+# + Faire un modèle à l'aide de la GridSearchCV
 
 # # --------------------------------------Session--------------------------------------
 
@@ -2226,7 +2223,7 @@ fig, ax = plt.subplots(figsize=(20, 15))
 sns.heatmap(resMatrixPool, ax=ax);
 
 
-# In[6]:
+# In[5]:
 
 
 ##### Uptdates before export
@@ -2234,7 +2231,7 @@ sns.heatmap(resMatrixPool, ax=ax);
 dfPool = dfPool.replace(-1, np.nan)
 
 
-# In[7]:
+# In[6]:
 
 
 ### Adding missing variables
@@ -2244,7 +2241,7 @@ dfPool['locpGrp_pieton_3'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_piet
 dfPool['locpGrp_pieton_6'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_6'].sum()>=1, 1, 0)
 
 
-# In[9]:
+# In[7]:
 
 
 ### Modifying variables type
@@ -2260,21 +2257,21 @@ dfPool[['etatpGrp_pieton_alone', 'prof', 'circ', 'planGrp', 'surf', 'atm', 'vosp
         'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']].astype(object)
 
 
-# In[10]:
+# In[8]:
 
 
 ### Renaming variables
 dfPool = dfPool.rename(columns={'num_veh': 'nbVeh'})
 
 
-# In[11]:
+# In[9]:
 
 
 ### Modifying index
 dfPool = dfPool.set_index('Num_Acc')
 
 
-# In[12]:
+# In[10]:
 
 
 ##### DataFrame for ML
@@ -2391,7 +2388,7 @@ max(dfPoolML2_34noCorrNoNA.isnull().sum() * 100 / len(dfPoolML2_34noCorrNoNA))
 # - Immune to multi-collinearity
 # - Works with NA values
 
-# In[33]:
+# In[12]:
 
 
 # Defining target and features
@@ -2400,14 +2397,14 @@ features = dfPoolMLCCA.drop('gravGrp_2_34', axis=1)
 features_matrix = pd.get_dummies(features, drop_first=True)
 
 
-# In[34]:
+# In[13]:
 
 
 ### Features
 features_matrix.columns
 
 
-# In[35]:
+# In[19]:
 
 
 # Verification of features length
@@ -2415,7 +2412,7 @@ print(len(set(features_matrix.columns)))
 print(len(features_matrix.columns))
 
 
-# In[36]:
+# In[15]:
 
 
 # Checking if any duplicate feature in the matrix and if so which ones
@@ -2423,27 +2420,27 @@ duplicate_columns = features_matrix.columns[features_matrix.columns.duplicated()
 duplicate_columns
 
 
-# In[37]:
+# In[16]:
 
 
 ### Splitting into train & test
 X_train, X_test, y_train, y_test = model_selection.train_test_split(features_matrix, target, test_size=0.2, random_state=1)
 
 
-# In[38]:
+# In[17]:
 
 
 X_train.columns
 
 
-# In[39]:
+# In[20]:
 
 
 print(X_train.shape)
 print(X_test.shape)
 
 
-# In[40]:
+# In[21]:
 
 
 train = xgb.DMatrix(data=X_train, label=y_train)
