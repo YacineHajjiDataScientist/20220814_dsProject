@@ -1,6 +1,20 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[87]:
+
+
+##### Import modules
 import pandas as pd
 import numpy as np
 import datetime
+import os
+import math
+
+##### Set directory
+os.chdir('C:\\Users\\Megaport\\Desktop\\jupyterNotebook')
+os.getcwd()
+
 ##### Import of tables into dataframes
 dfLieux = pd.read_csv('20220906_table_lieux.csv', sep=',')
 dfUsagers = pd.read_csv('20220906_table_usagers.csv', sep=',')
@@ -73,6 +87,7 @@ nbvConditions = [((dfLieux["nbv"]>=9) | (dfLieux["nbv"]==-1)),
                 (dfLieux["nbv"]>=4),]
 nbvChoices = [np.nan, '0', '1', '2', '3', '4+']
 dfLieux['nbvGrp'] = np.select(nbvConditions, nbvChoices)
+dfLieux['nbvGrp'] = dfLieux['nbvGrp'].replace(['nan'], [np.nan])
 # vostGrp: présence yes/no d'une voie réservée
 dfLieux['vospGrp'] = dfLieux['vosp'].replace([-1, 0, 1, 2, 3], [np.nan, 0, 1, 1, 1])
 # profGrp: -1 et 0 en NA
@@ -363,6 +378,92 @@ dfCarac = dfCarac.drop(['an','hrmn'], axis = 1)
 
 dfPoolPostDataManagementTemp = pd.merge(dfLieux, dfCarac, on="Num_Acc")
 dfPoolPostDataManagement = pd.merge(dfPoolPostDataManagementTemp, dfAtLeastOneByAccident, on="Num_Acc")
-dfPoolPostDataManagement = pd.merge(dfPoolPostDataManagement, df_pool_var_BPA, on="Num_Acc", how= 'left')
+dfPool = pd.merge(dfPoolPostDataManagement, df_pool_var_BPA, on="Num_Acc", how= 'left')
 
-dfPoolPostDataManagement.to_csv("20221024_table_poolPostDataManagement_YAH_BPA.csv")
+### Removing -1 values
+dfPool = dfPool.replace(-1, np.nan)
+
+### Adding missing variables
+dfPool['etatpGrp_pieton_alone'] = np.where(dfPool.groupby('Num_Acc')['nb_etatpGrp_pieton_alone'].sum()>=1, 1, 0)
+dfPool['locpGrp_pieton_1'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_1'].sum()>=1, 1, 0)
+dfPool['locpGrp_pieton_3'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_3'].sum()>=1, 1, 0)
+dfPool['locpGrp_pieton_6'] = np.where(dfPool.groupby('Num_Acc')['nb_locpGrp_pieton_6'].sum()>=1, 1, 0)
+
+### Modifying variables type
+dfPool[['etatpGrp_pieton_alone', 'prof', 'circ', 'planGrp', 'surf', 'atm', 'vospGrp', 'catv_EPD_exist',
+        'catv_PL_exist', 
+        'trajet_coursesPromenade_conductor', 'sexe_male_conductor', 'sexe_female_conductor', 'catv_train_exist',
+        'infra', 'catr', 'lum', 'catv_2_roues_exist', 'col', 'situ', 'dateFerieAndWeekend', 'dateFerie',
+        'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']] = dfPool[['etatpGrp_pieton_alone', 
+        'prof', 'circ', 'planGrp', 'surf', 'atm', 'vospGrp', 'catv_EPD_exist', 
+        'catv_PL_exist', 
+        'trajet_coursesPromenade_conductor', 'sexe_male_conductor', 'sexe_female_conductor', 'catv_train_exist',
+        'infra', 'catr', 'lum', 'catv_2_roues_exist', 'col', 'situ', 'dateFerieAndWeekend', 'dateFerie',
+        'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']].astype(object)
+
+### Renaming variables
+dfPool = dfPool.rename(columns={'num_veh': 'nbVeh'})
+
+### Modifying index
+dfPool = dfPool.set_index('Num_Acc')
+
+##### DataFrame for ML
+### Variables selection
+dfPoolML = dfPool[[
+                        # Variable à expliquer
+                    'gravGrp_2_34', 
+    
+                        # Variables explicatives
+                    'choc_cote', 'ageMeanConductors', 'nbVeh', 
+                    'prof', 'planGrp', 'surf', 'atm', 
+                    'vospGrp', 
+                    'catv_EPD_exist', 'catv_PL_exist', 
+                    'trajet_coursesPromenade_conductor',
+                    'sexe_male_conductor', 'sexe_female_conductor', 
+                    'intGrp', 'catv_train_exist', 'infra', 'catr', 'hourGrp', 'lum', 'circ', 'nbvGrp', 
+                    'catv_2_roues_exist', 'col', 'obsGrp', 'situ', 'populationGrp', 
+                    'mois_label', 'dateFerieAndWeekend', 'dateFerie',
+                    'etatpGrp_pieton_alone', 'locpGrp_pieton_1', 'locpGrp_pieton_3', 'locpGrp_pieton_6']]
+
+### Removing NA values
+dfPoolMLCCA = dfPoolML.dropna()
+
+### Defining target and features
+target = dfPoolMLCCA.gravGrp_2_34
+features = dfPoolMLCCA.drop('gravGrp_2_34', axis=1)
+features_matrix = pd.get_dummies(features, drop_first=True)
+
+### Removing the 70 least informative features (based on xgboost weight/gain/cover/total_gain/total_cover informations)
+features_matrix = features_matrix.drop(['atm_4.0', 'mois_label_nov', 'locpGrp_pieton_6_1', 'surf_3.0', 'catr_5.0', 'surf_4.0', 
+'infra_4.0', 'infra_2.0', 'situ_5.0', 'infra_1.0', 'infra_6.0', 'mois_label_may', 'dateFerie_1', 
+'infra_8.0', 'lum_4.0', 'prof_4.0', 'mois_label_jun', 'hourGrp_journee', 'mois_label_sep', 'surf_5.0', 
+'catr_7.0', 'catr_6.0', 'surf_6.0', 'surf_7.0', 'dateFerieAndWeekend_1', 'locpGrp_pieton_1_1', 'atm_6.0'], axis=1)
+
+### Export
+# DataFrame post data-processing
+#dfPool.to_csv("20221024_table_poolPostDataManagement_YAH_BPA.csv")
+
+# DataFrame for Machine Learning (all 97 features), removing variable from dfPool
+#dfPoolMLCCA.to_pickle('D:\\jupyterDatasets\\20221031_table_dfPoolMLCCA.csv')
+
+# DataFrame containing all features kept and target variable
+#features_matrix.to_pickle('D:\\jupyterDatasets\\20221112_table_feature_matrix.csv')
+
+
+# In[92]:
+
+
+dfPool.shape
+
+
+# In[93]:
+
+
+dfPoolMLCCA.shape
+
+
+# In[94]:
+
+
+features_matrix.shape
+
