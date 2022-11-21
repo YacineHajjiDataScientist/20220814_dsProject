@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import graphviz
 
 import dill
 import datetime
@@ -26,10 +27,11 @@ import statsmodels.api
 from sklearn import model_selection
 from sklearn.metrics import mean_squared_error, classification_report, roc_curve, auc, plot_confusion_matrix
 from sklearn import preprocessing
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, KFold
 
 from sklearn.linear_model import LinearRegression
 import xgboost as xgb
+from xgboost import XGBClassifier
 
 get_ipython().run_line_magic('matplotlib', 'inline')
 
@@ -78,7 +80,7 @@ train = xgb.DMatrix(data=X_train, label=y_train)
 test = xgb.DMatrix(data=X_test, label=y_test)
 
 
-# In[8]:
+# In[7]:
 
 
 print('Prevalence y train:', round(sum(y_train) / len(y_train), 4))
@@ -113,7 +115,7 @@ print('Prevalence y test:', round(sum(y_test) / len(y_test), 4))
 
 # ##### Initial model
 
-# In[17]:
+# In[175]:
 
 
 ### Initiating parameters for basic XGBoost
@@ -134,38 +136,53 @@ clf_xgb = xgb.train(params=params, dtrain=train,
                     evals=[(train, 'train'), (test, 'eval')])
 
 
-# In[47]:
+# In[176]:
 
 
-xgb_pred_train = clf_xgb.predict(X_train)
-xgb_pred_test = clf_xgb.predict(X_test)
+xgb_pred_train = clf_xgb.predict(train)
+xgb_pred_test = clf_xgb.predict(test)
 
 
-# In[48]:
+# In[177]:
 
 
-pd.crosstab(y_train, xgb_pred_train, colnames=['xgb_pred_train'], normalize=True)
+### Export of prediction of initial XGBoost
+# pd.DataFrame(xgb_pred_train).to_pickle('D:\\jupyterDatasets\\20221121_xgb_pred_train.csv')
+# pd.DataFrame(xgb_pred_test).to_pickle('D:\\jupyterDatasets\\20221121_xgb_pred_test.csv')
 
 
-# In[49]:
+# In[20]:
 
 
-print(classification_report(y_train, xgb_pred_train))
+xgb_pred_train_bin = np.where(xgb_pred_train>=0.5, 1, 0)
+xgb_pred_test_bin = np.where(xgb_pred_test>=0.5, 1, 0)
 
 
-# In[50]:
+# In[21]:
 
 
-pd.crosstab(y_test, xgb_pred_test, colnames=['xgb_pred_test'], normalize=True)
+pd.crosstab(y_train, xgb_pred_train_bin, colnames=['xgb_pred_train'], normalize=True)
 
 
-# In[51]:
+# In[22]:
 
 
-print(classification_report(y_test, xgb_pred_test))
+print(classification_report(y_train, xgb_pred_train_bin))
 
 
-# In[55]:
+# In[23]:
+
+
+pd.crosstab(y_test, xgb_pred_test_bin, colnames=['xgb_pred_test'], normalize=True)
+
+
+# In[24]:
+
+
+print(classification_report(y_test, xgb_pred_test_bin))
+
+
+# In[25]:
 
 
 # AUC train
@@ -179,7 +196,7 @@ print(roc_auc_xgb_train)
 print(roc_auc_xgb_test)
 
 
-# In[ ]:
+# In[26]:
 
 
 # ROC curve
@@ -194,50 +211,10 @@ plt.legend(loc='lower right');
 
 # ##### Tuning
 
-# In[57]:
+# In[109]:
 
 
-param_grid = {
-    'max_depth': [3, 4, 5],
-    'learning_rate': [0.1, 0.05, 0.01],
-    'gamma': [0, 0.25, 1.0],
-    'reg_lambda': [0, 1.0, 10.0],
-    'scale_pos_weight': [1, 3, 5]
-}
-
-
-# In[60]:
-
-
-optimal_params = GridSearchCV(
-    estimator=clf_xgb,
-    param_grid=param_grid,
-    scoring='roc_auc',
-    n_jobs=10,
-    cv=3)
-
-
-# In[ ]:
-
-
-optimal_params.fit(X_train, 
-                   y_train,
-                   eval_metric='auc',
-                   eval_set=[(X_test, y_test)])
-
-
-# In[ ]:
-
-
-print(optimal_params.best_params_)
-
-
-# In[45]:
-
-
-from xgboost import XGBClassifier
-from sklearn.model_selection import GridSearchCV
-
+##### Initiating basic XGBoost
 estimator = XGBClassifier(
     objective= 'binary:logistic',
     num_boost_round=50,
@@ -245,29 +222,213 @@ estimator = XGBClassifier(
 )
 
 parameters = {
-    'max_depth': [2, 3, 4]
+    'max_depth': [4, 6],
+    'gamma': [0, 0.25, 1],
+    'reg_lambda': [0, 1.0, 10.0],
 }
 
-grid_search = GridSearchCV(
+#     'learning_rate': [0.1, 0.05, 0.03, 0.01]
+        
+kf = KFold(n_splits=5, shuffle=True, random_state=1)
+
+### GridSearchCV
+grid_search_1 = GridSearchCV(
     estimator=estimator,
     param_grid=parameters,
     scoring = 'roc_auc',
     n_jobs = -1,
-    cv = 5,
-    verbose=True
+    cv = kf,
+    verbose=1,
+    return_train_score=True
 )
 
-grid_search.fit(X_train, y_train)
+grid_search_1.fit(X_train, y_train)
+
+print(grid_search_1.best_params_)
+### Best parameters: {'gamma': 0.25, 'max_depth': 6, 'reg_lambda': 10.0}
+### Decision: we keep gamma=0.25, we go beyond max_depth=6 and beyond reg_lambda=10
 
 
-# In[46]:
+# In[108]:
 
 
-grid_search.best_estimator_
+dfGridSearchCV_1 = pd.DataFrame(grid_search_1.cv_results_)[['params', 'rank_test_score', 'mean_test_score', 'mean_train_score', 'std_test_score', 'std_train_score']]
+dfGridSearchCV_1.sort_values('rank_test_score')
+### Max_depth=6 always was better in test cases
+### 3 best models had reg_lambda=10.0
+### We can still question the gamma value
 
 
-# In[51]:
+# In[133]:
 
 
-grid_search.cv_results_
+##### Plot GridSearchCV1 train vs test
+results = ['mean_test_score', 'mean_train_score', 'std_test_score', 'std_train_score']
+
+train_scores = grid_search_1.cv_results_['mean_train_score']
+test_scores = grid_search_1.cv_results_['mean_test_score']
+
+plt.plot(train_scores, label='train', color='#8940B8')
+plt.plot(test_scores, label='test', color='#10CB8A')
+plt.xticks(range(18))
+plt.ylim((0.75, 0.85))
+plt.legend(loc='best')
+plt.show()
+
+
+# In[131]:
+
+
+dfGridSearchCV_1.params
+
+
+# In[142]:
+
+
+##### GridSearchCV 2nd step
+parameters = {
+    'max_depth': [4, 6, 8, 10],
+    'gamma': [0.25],
+    'reg_lambda': [10.0]
+}
+
+kf = KFold(n_splits=5, shuffle=True, random_state=1)
+
+### GridSearchCV
+grid_search_2 = GridSearchCV(
+    estimator=estimator,
+    param_grid=parameters,
+    scoring = 'roc_auc',
+    n_jobs = -1,
+    cv = kf,
+    verbose=1,
+    return_train_score=True
+)
+
+grid_search_2.fit(X_train, y_train)
+
+print(grid_search_2.best_params_)
+### Best parameters: {'gamma': 0.25, 'max_depth': 6, 'reg_lambda': 10.0}
+### Decision: we keep gamma=0.25, we go beyond max_depth=6 and beyond reg_lambda=10
+
+
+# In[143]:
+
+
+dfGridSearchCV_2 = pd.DataFrame(grid_search_2.cv_results_)[['params', 'rank_test_score', 'mean_test_score', 'mean_train_score', 'std_test_score', 'std_train_score']]
+dfGridSearchCV_2.sort_values('rank_test_score')
+### We need either 4/6 max depth or regularization to avoid overfitting
+
+
+# In[153]:
+
+
+##### Plot GridSearchCV2 train vs test
+results = ['mean_test_score', 'mean_train_score', 'std_test_score', 'std_train_score']
+
+train_scores = grid_search_2.cv_results_['mean_train_score']
+test_scores = grid_search_2.cv_results_['mean_test_score']
+
+plt.plot(train_scores, label='train', color='#8940B8')
+plt.plot(test_scores, label='test', color='#10CB8A')
+plt.xticks([0, 1, 2, 3], [4, 6, 8, 10])
+plt.xlabel('max_depth')
+plt.ylim((0.75, 0.85))
+plt.legend(loc='best')
+plt.show()
+
+
+# In[155]:
+
+
+dfGridSearchCV_2.params
+
+
+# In[168]:
+
+
+##### Launching optimal XGBoost
+params = [
+    ('objective', 'binary:logistic'),
+    ('max_depth', 6),
+    ('gamma', 0.25),
+    ('reg_lambda', 10.0),
+    ('eval_metric', 'auc'),
+    ('early_stopping_rounds', 10)
+]
+
+optimal_xgb = xgb.train(params=params, dtrain=train, 
+                    num_boost_round=100, 
+                    evals=[(train, 'train'), (test, 'eval')])
+
+
+# In[172]:
+
+
+### Prediction values of optimal XGBoost
+xgb_opti_pred_train = optimal_xgb.predict(train)
+xgb_opti_pred_test = optimal_xgb.predict(test)
+
+
+# In[174]:
+
+
+### Export of prediction of optimal XGBoost
+# pd.DataFrame(xgb_opti_pred_train).to_pickle('D:\\jupyterDatasets\\20221121_xgb_opti_pred_train.csv')
+# pd.DataFrame(xgb_opti_pred_test).to_pickle('D:\\jupyterDatasets\\20221121_xgb_opti_pred_test.csv')
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[141]:
+
+
+scores = grid_search_1.cv_results_['mean_test_score'].reshape(3, 3, 2)
+scores
+
+
+# In[ ]:
+
+
+conda install graphviz python-graphviz
+
+
+# In[102]:
+
+
+fig, ax = plt.subplots(figsize=(200, 200))
+xgb.plot_tree(clf_xgb, num_trees=4, ax=ax, 
+              yes_color='#00cc00', no_color='#FF000', 
+              condition_node_params={'shape': 'box', 'style': 'solid'})
+plt.show()
+#plt.savefig('D:\\jupyterDatasets\\xgboost_tree_graph.png')
+#plt.savefig("D:\\jupyterDatasets\\xgboost_tree_graph.pdf")
+
+
+# In[44]:
+
+
+grid_search_1.best_estimator_
+
+
+# In[32]:
+
+
+grid_search_1.cv_results_
 
