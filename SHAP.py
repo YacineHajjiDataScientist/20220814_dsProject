@@ -4,7 +4,19 @@
 # In[ ]:
 
 
+pip install sage-importance
+
+
+# In[ ]:
+
+
 pip install shap
+
+
+# In[7]:
+
+
+get_ipython().system('pip install lightgbm')
 
 
 # In[1]:
@@ -34,7 +46,7 @@ print(feature_matrix.shape)
 print(target.shape)
 
 
-# In[23]:
+# In[3]:
 
 
 ### Train/test split
@@ -55,15 +67,16 @@ print('Prevalence y train:', round(sum(y_train) / len(y_train), 4))
 print('Prevalence y test:', round(sum(y_test) / len(y_test), 4))
 
 
-# In[9]:
+# In[4]:
 
 
 # Import models
-xgb_clf = jb.load('C:\\Users\\Megaport\\Desktop\\jupyterNotebook\\grid_search\\optimal_xgb.joblib')
 en_clf = jb.load('C:\\Users\\Megaport\\Desktop\\jupyterNotebook\\grid_search\\optimal_model_en.joblib')
+xgb_clf = jb.load('C:\\Users\\Megaport\\Desktop\\jupyterNotebook\\grid_search\\optimal_xgb.joblib')
+lgbm_clf = jb.load('C:\\Users\\Megaport\\Desktop\\jupyterNotebook\\grid_search\\LGBM.joblib')
 
 
-# In[16]:
+# In[5]:
 
 
 # SHAP en
@@ -71,7 +84,7 @@ explainer_en = shap.LinearExplainer(en_clf, train_scaled, link=shap.links.logit)
 get_ipython().run_line_magic('time', 'shap_values_en = explainer_en.shap_values(test_scaled)')
 
 
-# In[17]:
+# In[6]:
 
 
 # SHAP xgb
@@ -79,10 +92,12 @@ explainer_xgb =  shap.TreeExplainer(xgb_clf)
 get_ipython().run_line_magic('time', 'shap_values_xgb = explainer_xgb.shap_values(test)')
 
 
-# In[18]:
+# In[7]:
 
 
-shap_values_en[1]
+# SHAP lgbm
+explainer_lgbm =  shap.TreeExplainer(lgbm_clf)
+get_ipython().run_line_magic('time', 'shap_values_lgbm = explainer_xgb.shap_values(test_scaled)')
 
 
 # In[24]:
@@ -99,32 +114,129 @@ shap.summary_plot(shap_values_en, test_scaled_df, plot_type='dot')
 shap.summary_plot(shap_values_xgb, X_test, plot_type='dot')
 
 
-# In[29]:
+# In[8]:
+
+
+### SHAP plot lgbm - Relation of variables
+shap.summary_plot(shap_values_lgbm, X_test, plot_type='dot')
+
+
+# In[35]:
 
 
 ### SHAP plot xgb - Relation target with 2 variables
-shap.dependence_plot("ageMeanConductors", shap_values, X_test, interaction_index= 'sexe_female_conductor_1')
+shap.dependence_plot("ageMeanConductors", shap_values_xgb, X_test, interaction_index= 'sexe_female_conductor_1')
 
 
-# In[13]:
+# In[36]:
 
 
-shap.force_plot(explainer.expected_value, shap_values[:1000], X_test[:1000])
+### SHAP plot xgb - Relation target with 2 variables
+shap.dependence_plot("nbVeh", shap_values_xgb, X_test, interaction_index= 'sexe_female_conductor_1')
 
 
-# In[8]:
+# In[40]:
+
+
+### SHAP plot - Sample order by similarity
+shap.initjs()
+shap.force_plot(explainer_xgb.expected_value, shap_values_xgb[:1000], X_test[:1000])
+
+
+# In[41]:
 
 
 ### SHAP plot - Impact of each modality for one person
 shap.initjs()
-shap.force_plot(explainer.expected_value, shap_values[0, :], X_test.iloc[0, :])
+shap.force_plot(explainer_xgb.expected_value, shap_values_xgb[0, :], X_test.iloc[0, :])
 
+
+# ### Waterfall plots
+
+# In[ ]:
+
+
+from shap import Explainer, Explanation
+
+
+# In[ ]:
+
+
+explainer = Explainer(en_clf)
+sv = explainer(train)
+
+
+# In[ ]:
+
+
+sv.base_values
+
+
+# In[ ]:
+
+
+### Waterfall plot for observation 1
+explainer = Explainer(xgb_clf)
+sv = explainer(X_train)
+
+exp = Explanation(sv[:,:,6], sv.base_values[:,6], X_train, feature_names=None)
+idx = 7 # datapoint to explain
+waterfall_plot(exp[idx])
+
+
+# In[ ]:
+
+
+### Waterfall plot for observation 1
+explainer = Explainer(xgb_clf)
+sv = explainer(X_train)
+
+exp = Explanation(sv[:,6], sv.base_values, X_train, feature_names=None)
+idx = 7 # datapoint to explain
+waterfall(exp[idx])
+
+
+# In[ ]:
+
+
+shap.plots.waterfall(exp[idx])
+
+
+# In[ ]:
+
+
+### Waterfall plot for observation 1
+shap.plots.waterfall(shap_values_xgb[0])
+
+
+# ### Overall performances (by feature importance)
 
 # In[7]:
 
 
+### Overall feature importance
 types = ['weight', 'gain', 'cover', 'total_gain', 'total_cover']
 
 for f in types:
     xgb.plot_importance(xgb_clf, max_num_features=15, importance_type=f, title='importance: '+f);
+
+
+# ### SAGE
+
+# In[ ]:
+
+
+import sage
+
+feature_names = X_test.columns
+
+# Set up an imputer to handle missing features
+imputer = sage.MarginalImputer(xgb_clf, X_test[:512])
+
+# Set up an estimator
+estimator = sage.PermutationEstimator(imputer, 'mse')
+
+# Calculate SAGE values
+sage_values = estimator(X_test, y_test)
+sage_values.plot(feature_names)
 

@@ -20,6 +20,7 @@ import datetime
 import math
 import itertools
 
+import scipy.stats as stats
 from scipy.stats import pearsonr
 from scipy.stats import chi2_contingency
 import statsmodels.api
@@ -29,9 +30,17 @@ from sklearn.metrics import mean_squared_error, classification_report, roc_curve
 from sklearn import preprocessing
 from sklearn.model_selection import GridSearchCV, KFold
 
+from sklearn.linear_model import LinearRegression, RidgeCV, Lasso, lasso_path, LassoCV, ElasticNetCV, ElasticNet
+from sklearn.feature_selection import f_regression, SelectKBest, SelectFromModel
+from sklearn.model_selection import cross_validate, cross_val_predict
+from sklearn.preprocessing import StandardScaler
+
 from sklearn.linear_model import LinearRegression
 import xgboost as xgb
 from xgboost import XGBClassifier
+
+import joblib
+from joblib import dump, load
 
 get_ipython().run_line_magic('matplotlib', 'inline')
 
@@ -67,15 +76,21 @@ feature_matrix.columns
 
 # ##### Splitting into train/test sets
 
-# In[5]:
+# In[4]:
 
 
 X_train, X_test, y_train, y_test = model_selection.train_test_split(feature_matrix, target, test_size=0.2, random_state=1)
 
 
-# In[6]:
+# In[5]:
 
 
+### Scaling for Lasso
+scaler = preprocessing.StandardScaler()
+train_scaled = scaler.fit_transform(X_train)
+test_scaled = scaler.transform(X_test)
+
+### XGBoost datasets
 train = xgb.DMatrix(data=X_train, label=y_train)
 test = xgb.DMatrix(data=X_test, label=y_test)
 
@@ -89,7 +104,125 @@ print('Prevalence y test:', round(sum(y_test) / len(y_test), 4))
 
 # ### Models
 
-# ### 1- XGBoost
+# ### 1- Lasso/ElasticNet
+# *Les paramètres généraux*
+# - alpha: float, default=1.0
+# Constant that multiplies the penalty terms. Defaults to 1.0. See the notes for the exact mathematical meaning of this parameter. alpha = 0 is equivalent to an ordinary least square, solved by the LinearRegression object. For numerical reasons, using alpha = 0 with the Lasso object is not advised. Given this, you should use the LinearRegression object.
+# - l1_ratio: float, default=0.5
+# The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1. For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
+
+# In[10]:
+
+
+linreg = LinearRegression()
+ridgeregcv = RidgeCV(alphas=(0.001, 0.01, 0.1, 0.25, 0.5, 0.9), cv=10)
+lassoregcv = LassoCV(alphas=(0.001, 0.01, 0.1, 0.25, 0.5, 0.9), cv=10)
+lassoreg = Lasso(alpha=0.25)
+linreg.fit(train_scaled, y_train)
+ridgeregcv.fit(train_scaled, y_train)
+lassoregcv.fit(train_scaled, y_train)
+lassoreg.fit(train_scaled, y_train)
+
+
+# In[13]:
+
+
+feats = list(X_train.columns)
+feats.insert(0, 'intercept')
+coeffs1 = list(linreg.coef_)
+coeffs1.insert(0, linreg.intercept_)
+coeffs2 = list(ridgeregcv.coef_)
+coeffs2.insert(0, ridgeregcv.intercept_)
+coeffs3 = list(lassoregcv.coef_)
+coeffs3.insert(0, lassoregcv.intercept_)
+coeffs4 = list(lassoreg.coef_)
+coeffs4.insert(0, lassoreg.intercept_)
+pd.DataFrame({'coeflinreg': coeffs1, 
+             'coefridgereg': coeffs2, 
+             'coeflassoreg': coeffs3, 
+             'coeflasso0.25reg': coeffs4}, index=feats).transpose()
+
+
+# In[19]:
+
+
+alpha_path, coefs_lasso, _ = lasso_path(train_scaled, y_train, alphas=(0.001, 0.01, 0.1, 0.2, 0.4, 0.8, 1));
+
+plt.figure(figsize=(20, 10))
+for i in range(coefs_lasso.shape[0]):
+    plt.plot(alpha_path, coefs_lasso[i, :], '-', label=X_train.columns[i])
+plt.legend();
+
+
+# In[21]:
+
+
+plt.figure(figsize=(20, 30))
+plt.barh(y=X_train.columns, width=lassoregcv.coef_);
+
+
+# In[22]:
+
+
+model_en = ElasticNetCV(cv=8, 
+                        l1_ratio=(0.1, 0.25, 0.5, 0.7, 0.75, 0.8, 0.85, 0.9, 0.99), 
+                        alphas=(0.001, 0.01, 0.02, 0.025, 0.05, 0.1, 0.25, 0.5, 0.8, 1.0))
+model_en.fit(train_scaled, y_train)
+
+
+# In[7]:
+
+
+##### Initiating basic ElasticNet()
+eNet = ElasticNet()
+
+parameters = {
+#     'max_iter': [1, 5, 10],
+    'alpha': [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
+    'l1_ratio': np.arange(0.1, 1.0, 0.1)
+}
+
+kf = KFold(n_splits=3, shuffle=True, random_state=1)
+
+### GridSearchCV
+grid_search_eNet = GridSearchCV(
+    estimator=eNet,
+    param_grid=parameters,
+    scoring = 'roc_auc',
+    n_jobs = 1,
+    cv = kf,
+    verbose=3,
+    return_train_score=True
+)
+
+grid_search_eNet.fit(train_scaled, y_train)
+
+print(grid_search_eNet.best_params_)
+
+
+# In[14]:
+
+
+##### Launching optimal ElasticNet
+params = [
+    ('alpha', 0.0001),
+    ('l1_ratio', 0.1)
+]
+
+en_clf = ElasticNet(alpha=0.0001, 
+                    l1_ratio=0.1)
+
+en_clf.fit(train_scaled, y_train)
+
+
+# In[15]:
+
+
+# Export model
+dump(en_clf, 'optimal_model_en.joblib')
+
+
+# ### 2- XGBoost
 # **Les paramètres généraux**  
 # - booster : Le type de booster utilisé (par défaut gbtree).  
 # - nthread : Le nombre de coeurs à utiliser pour le calcul parallèle (par défaut tous les coeurs disponibles sont utilisés).  
@@ -376,6 +509,367 @@ xgb_opti_pred_test = optimal_xgb.predict(test)
 ### Export of prediction of optimal XGBoost
 # pd.DataFrame(xgb_opti_pred_train).to_pickle('D:\\jupyterDatasets\\20221121_xgb_opti_pred_train.csv')
 # pd.DataFrame(xgb_opti_pred_test).to_pickle('D:\\jupyterDatasets\\20221121_xgb_opti_pred_test.csv')
+
+
+# In[24]:
+
+
+##### Initiating basic XGBoost
+estimator = XGBClassifier(
+    objective= 'binary:logistic',
+    seed=1
+)
+
+parameters = {
+    'max_depth': [3, 4, 6, 8, 10, 12],
+    'gamma': [0, 0.25, 1],
+    'min_child_weight': [0, 0.25, 1],
+    'n_estimators': [50, 100, 150]
+}
+
+        
+kf = KFold(n_splits=5, shuffle=True, random_state=1)
+
+### GridSearchCV
+grid_search_3 = GridSearchCV(
+    estimator=estimator,
+    param_grid=parameters,
+    scoring = 'roc_auc',
+    n_jobs = 1,
+    cv = kf,
+    verbose=3,
+    return_train_score=True
+)
+
+grid_search_3.fit(X_train, y_train)
+
+print(grid_search_3.best_params_)
+### Best parameters: {'gamma': 0, 'max_depth': 6, 'min_child_weight': 0, 'n_estimators': 150}
+### Decision: 
+
+
+# In[28]:
+
+
+joblib.dump(grid_search_3, 'grid_search_3.pkl')
+
+
+# In[32]:
+
+
+##### Plot GridSearchCV3 train vs test
+results = ['mean_test_score', 'mean_train_score', 'std_test_score', 'std_train_score']
+
+train_scores = grid_search_3.cv_results_['mean_train_score']
+test_scores = grid_search_3.cv_results_['mean_test_score']
+
+plt.plot(train_scores, label='train', color='#8940B8')
+plt.plot(test_scores, label='test', color='#10CB8A')
+plt.ylim((0.75, 0.95))
+plt.legend(loc='best')
+plt.show()
+
+
+# In[36]:
+
+
+##### Initiating basic XGBoost
+estimator = XGBClassifier(
+    objective= 'binary:logistic',
+    seed=1
+)
+
+parameters = {
+    'max_depth': [3, 4],
+    'gamma': [0.25, 1],
+    'min_child_weight': [0.25, 1],
+    'n_estimators': [250, 350]
+}
+
+        
+kf = KFold(n_splits=3, shuffle=True, random_state=1)
+
+### GridSearchCV
+grid_search_4 = GridSearchCV(
+    estimator=estimator,
+    param_grid=parameters,
+    scoring = 'roc_auc',
+    n_jobs = 1,
+    cv = kf,
+    verbose=3,
+    return_train_score=True
+)
+
+grid_search_4.fit(X_train, y_train)
+
+print(grid_search_4.best_params_)
+### Best parameters: {'gamma': 0.25, 'max_depth': 4, 'min_child_weight': 0.25, 'n_estimators': 350}
+### Decision: 
+
+
+# In[37]:
+
+
+joblib.dump(grid_search_4, 'grid_search_4.pkl')
+
+
+# In[8]:
+
+
+##### Initiating basic XGBoost
+estimator = XGBClassifier(
+    objective= 'binary:logistic',
+    seed=1
+)
+
+parameters = {
+    'max_depth': [3, 4, 6],
+    'lambda': [2, 4, 7, 15],
+    'alpha': [2, 4, 7, 15],
+    'n_estimators': [250, 350, 450]
+}
+
+        
+kf = KFold(n_splits=3, shuffle=True, random_state=1)
+
+### GridSearchCV
+grid_search_5 = GridSearchCV(
+    estimator=estimator,
+    param_grid=parameters,
+    scoring = 'roc_auc',
+    n_jobs = 1,
+    cv = kf,
+    verbose=3,
+    return_train_score=True
+)
+
+grid_search_5.fit(X_train, y_train)
+
+print(grid_search_5.best_params_)
+### Best parameters: {'alpha': 15, 'lambda': 4, 'max_depth': 4, 'n_estimators': 450}
+### Decision: 
+
+
+# In[9]:
+
+
+joblib.dump(grid_search_5, 'grid_search_5.pkl')
+
+
+# In[10]:
+
+
+##### Initiating basic XGBoost
+estimator = XGBClassifier(
+    objective= 'binary:logistic',
+    seed=1
+)
+
+parameters = {
+    'max_depth': [6, 10],
+    'lambda': [15, 30, 50],
+    'alpha': [15, 30, 50],
+    'n_estimators': [450]
+}
+
+        
+kf = KFold(n_splits=3, shuffle=True, random_state=1)
+
+### GridSearchCV
+grid_search_6 = GridSearchCV(
+    estimator=estimator,
+    param_grid=parameters,
+    scoring = 'roc_auc',
+    n_jobs = 1,
+    cv = kf,
+    verbose=3,
+    return_train_score=True
+)
+
+grid_search_6.fit(X_train, y_train)
+
+print(grid_search_6.best_params_)
+### Best parameters: {'alpha': 30, 'lambda': 50, 'max_depth': 6, 'n_estimators': 450}
+### Decision: 
+
+
+# In[11]:
+
+
+joblib.dump(grid_search_6, 'grid_search_6.pkl')
+
+
+# In[12]:
+
+
+##### Initiating basic XGBoost
+estimator = XGBClassifier(
+    objective= 'binary:logistic',
+    seed=1
+)
+
+parameters = {
+    'max_depth': [4, 6],
+    'lambda': [4],
+    'alpha': [25, 50, 100],
+    'n_estimators': [450, 600, 800]
+}
+
+        
+kf = KFold(n_splits=3, shuffle=True, random_state=1)
+
+### GridSearchCV
+grid_search_7 = GridSearchCV(
+    estimator=estimator,
+    param_grid=parameters,
+    scoring = 'roc_auc',
+    n_jobs = 1,
+    cv = kf,
+    verbose=3,
+    return_train_score=True
+)
+
+grid_search_7.fit(X_train, y_train)
+
+print(grid_search_7.best_params_)
+### Best parameters: {'alpha': 25, 'lambda': 4, 'max_depth': 6, 'n_estimators': 450}
+### Decision: 
+
+
+# In[ ]:
+
+
+joblib.dump(grid_search_7, 'grid_search_7.pkl')
+
+
+# In[13]:
+
+
+##### Initiating basic XGBoost
+estimator = XGBClassifier(
+    objective= 'binary:logistic',
+    seed=1
+)
+
+parameters = {
+    'max_depth': [6],
+    'lambda': [15],
+    'alpha': [15],
+    'n_estimators': [450],
+    'learning_rate': [0.3, 0.1, 0.05, 0.01]
+}
+
+        
+kf = KFold(n_splits=3, shuffle=True, random_state=1)
+
+### GridSearchCV
+grid_search_8 = GridSearchCV(
+    estimator=estimator,
+    param_grid=parameters,
+    scoring = 'roc_auc',
+    n_jobs = 1,
+    cv = kf,
+    verbose=3,
+    return_train_score=True
+)
+
+grid_search_8.fit(X_train, y_train)
+
+print(grid_search_8.best_params_)
+### Best parameters: {'alpha': 15, 'lambda': 15, 'learning_rate': 0.1, 'max_depth': 6, 'n_estimators': 450}
+### Decision: 
+
+
+# In[14]:
+
+
+joblib.dump(grid_search_8, 'grid_search_8.pkl')
+
+
+# ##### Optimal Model
+
+# In[9]:
+
+
+##### Launching optimal XGBoost
+params = [
+    ('objective', 'binary:logistic'),
+    ('max_depth', 6),
+    ('eval_metric', 'auc'),
+    ('early_stopping_rounds', 10),
+    ('learning_rate', 0.1)
+]
+
+### Optimal XGBoost after tuning
+optimal_xgb = xgb.train(params=params, dtrain=train, 
+                    num_boost_round=500, 
+                    evals=[(train, 'train'), (test, 'eval')])
+
+
+# In[19]:
+
+
+# Export model
+dump(optimal_xgb, 'optimal_xgb.joblib')
+
+
+# In[20]:
+
+
+# Import model
+loaded_model = load('C:\\Users\\Megaport\\Desktop\\jupyterNotebook\\grid_search\\optimal_xgb.joblib')
+# loaded_model.predict(test)
+
+
+# # SHAP
+
+# In[17]:
+
+
+# pip install shap
+conda install -c conda-forge shap
+
+
+# In[18]:
+
+
+import shap
+explainer =  shap.TreeExplainer(optimal_xgb)
+get_ipython().run_line_magic('time', 'shap_values = explainer.shap_values(X_test)')
+
+
+# In[ ]:
+
+
+
+shap.summary_plot(shap_values[1], X_test, plot_type='dot')
+
+
+# In[ ]:
+
+
+
+shap.dependence_plot("ageMeanConductors", shap_values[1], X_test, interaction_index= 'sexe_female_conductor_1')
+
+
+# In[ ]:
+
+
+
+shap.initjs()
+shap.force_plot(explainer.expected_value[1], shap_values[1][0,:], X_test.iloc[0,:])
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
 
 
 # In[ ]:
