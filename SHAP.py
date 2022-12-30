@@ -241,33 +241,26 @@ sage_values = estimator(X_test, y_test)
 sage_values.plot(feature_names)
 
 
-# # User case: how to calibrate it?
+# # User case: comment calibrer notre modèle ?
 
-# ##### Case: Discussion au gouvernement
+# ##### Case-study: Discussion au gouvernement
 # 
-# Le président vient d'entrer en fonction et il voudrait savoir si cela vaut le coup de dépenser de l'argent pour réduire les accidents graves sur la route ou s'il faut qu'il garde cet argent pour d'autres projets.  
-# 
-# <span style="background-color: #D67676">
-# <b>Le ministre des transports affirme qu'il faut absolument dépenser plus car il voit une véritable opportunité de réduire les accidents graves, il sait d'ailleurs qu'il peut prédire à l'avance la majorité des accidents graves, mais au coût de mal prédire les accidents bénins.</b></span>
-# 
-# <span style="background-color: #76D680"><b>Le ministre de l'économie appuie le fait qu'il faut exclusivement se baser sur le profil des accidents graves pour lesquels nous avons une probabilité élevée de bien prédire afin que l'argent soit en grande majorité bien dépensée dans les infrastructures.</b></span>
-# 
-# <span style="background-color: #76C3D6"><b>L'expert analyste, lui, propose que l'enveloppe soit divisée en deux afin que le ministère des transports puisse bénéficier de dépenses sur son projet mais à condition qu'il prédise le mieux possible à la fois les accidents graves et ceux moins graves afin de ne pas créer trop d'infrastructures inutiles.</b></span>
+# Le président vient d'entrer en fonction et il voudrait savoir combien d'argent il doit allouer au ministère des transports.  
 # 
 # 
+# - <span style="background-color: #D67676">Le ministre des transports affirme qu'il faut absolument dépenser plus car il voit une véritable opportunité de réduire les accidents graves, il sait d'ailleurs qu'il peut prédire à l'avance la majorité des accidents graves, mais au coût de mal prédire les accidents bénins.</span>
 # 
+# - <span style="background-color: #76D680">Le ministre de l'économie appuie le fait qu'il faut exclusivement se baser sur le profil des accidents graves pour lesquels nous avons une probabilité élevée de bien prédire afin que l'argent soit en grande majorité bien dépensée dans les infrastructures.</span>
 # 
+# - <span style="background-color: #76C3D6">L'expert analyste, lui, propose que l'enveloppe soit divisée en deux afin que le ministère des transports puisse bénéficier de dépenses sur son projet mais à condition qu'il prédise le mieux possible à la fois les accidents graves et ceux moins graves afin de ne pas créer trop d'infrastructures inutiles.</span>
 # 
+# D'un point de vue mathématique :
+# - <span style="background-color: #D67676">La proposition du ministre des transports</span> requièrerait d'utiliser un cutoff bas, qui permettrait de prédire plus d'accidents comme étant très graves. Cela augmenterait le nombre de Vrais Positifs mais également le nombre de Faux Positifs. L'impact serait d'augmenter le recall positif au prix d'une réduction de la précision positive.  
+# - <span style="background-color: #76D680">La proposition du ministre de l'économie</span> requièrerait d'utiliser un cutoff haut, qui permettrait d'augmenter la probabilité que les accidents prédits très graves le soient vraiment. Cela baisserait le nombre de Faux Positifs mais également le nombre de Vrais Positifs. L'impact serait d'augmenter la précision positive, au coût d'une baisse du recall positif.
+# - <span style="background-color: #76C3D6">La proposition de l'expert analyste</span> est un entre deux, pour lequel on utilisera le cutoff de Youden (cutoff maximisant la formule recall positif + recall négatif - 100). Il sera un bon compromis pour avoir un recall positif élevé tout en ayant un recall négatif élevé.  
+# $Youden Index = \sum \limits _{cutoff=0} ^{cutoff=1} PositiveRecall_{cutoff} + NegativeRecall_{cutoff} $
 # 
-# 
-# 
-# 
-# 
-# The objective is to target most factors that could represent potential severe accidents so that the French state could spend their money in the right infrastructures.
-# 
-# For this purpore, we focus on the detection of True Positives, this means that we must let the model predict more people as positives. It will increase the recall of positives but also increase the number of negatives predicted as positives (decrease the precision of positives).
-# 
-# In order to increase the positive recall, we must use a lower cutoff than 0.5.
+# Une fois le cutoff choisi, l'objectif serait de déterminer les facteurs qui prédisent les accidents sévères afin de faire des optimisations sur les infrastructures (lumières supplémentaires, limitations de vitesse, sens de circulation, ...).  
 
 # ### Predictions with XGBoost
 
