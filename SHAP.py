@@ -245,26 +245,42 @@ sage_values.plot(feature_names)
 
 # ##### Case-study: Discussion au gouvernement
 # 
-# Le président vient d'entrer en fonction et il voudrait savoir combien d'argent il doit allouer au ministère des transports.  
+# *Le président vient d'entrer en fonction et il voudrait savoir combien d'argent il doit allouer au ministère des transports.*  
 # 
+# - <span style="background-color: #E8CCAB">*Le ministre des transports veut réduire au maximum le nombre d'accidents graves, quel que soit le prix.*</span>
 # 
-# - <span style="background-color: #E8CCAB">Le ministre des transports affirme qu'il faut absolument dépenser plus car il voit une véritable opportunité de réduire les accidents graves, il sait d'ailleurs qu'il peut prédire à l'avance la majorité des accidents graves, mais au coût de mal prédire les accidents bénins.</span>
+# - <span style="background-color: #ABE8CC">*Le ministre de l'économie veut optimiser les dépenses pour réduire le nombre d'accidents graves.*</span>
 # 
-# - <span style="background-color: #ABE8CC">Le ministre de l'économie appuie le fait qu'il faut exclusivement se baser sur le profil des accidents graves pour lesquels nous avons une probabilité élevée de bien prédire afin que l'argent soit en grande majorité bien dépensée dans les infrastructures.</span>
+# - <span style="background-color: #97BFF9">*L'expert analyste propose un entre-deux afin que les dépenses soient faites pour réduire un nombre important d'accidents graves, sans que cela concerne trop d'accidents bénins.*</span>
 # 
-# - <span style="background-color: #97BFF9">L'expert analyste, lui, propose que l'enveloppe soit divisée en deux afin que le ministère des transports puisse bénéficier de dépenses sur son projet mais à condition qu'il prédise le mieux possible à la fois les accidents graves et ceux moins graves afin de ne pas créer trop d'infrastructures inutiles.</span>
+# *D'un point de vue statistique, voici à quoi correspondrait chaque proposition :*
 # 
-# D'un point de vue statistique :
-# - <span style="background-color: #E8CCAB">La proposition du ministre des transports requièrerait d'utiliser un cutoff bas, qui permettrait de prédire plus d'accidents comme étant très graves. Cela augmenterait le nombre de Vrais Positifs mais également le nombre de Faux Positifs. L'impact serait d'augmenter le recall positif au prix d'une réduction de la précision positive.  </span>
-# - <span style="background-color: #ABE8CC">La proposition du ministre de l'économie requièrerait d'utiliser un cutoff haut, qui permettrait d'augmenter la probabilité que les accidents prédits très graves le soient vraiment. Cela baisserait le nombre de Faux Positifs mais également le nombre de Vrais Positifs. L'impact serait d'augmenter la précision positive, au coût d'une baisse du recall positif.</span>
-# - <span style="background-color: #97BFF9">La proposition de l'expert analyste est un entre deux, pour lequel on utilisera le cutoff de Youden (cutoff maximisant la formule recall positif + recall négatif - 100). Il sera un bon compromis pour avoir un recall positif élevé tout en ayant un recall négatif élevé.  </span>
-# $Youden Index = \sum \limits _{cutoff=0} ^{cutoff=1} PositiveRecall_{cutoff} + NegativeRecall_{cutoff} $
+# |  | Negative Prediction | Positive Prediction |
+# | --- | --- | --- |
+# | **Mild accident** | True Negative | False Positive |
+# | **Severe accident** | False Negative | True Positive |
+# 
+# - <span style="background-color: #E8CCAB">*La proposition du ministre des transports requièrerait d'avoir un maximum de Vrai Positifs et donc d'utiliser un cutoff bas, qui permettrait de prédire plus de prédictions positives, i.e. plus d'accidents comme étant prédits graves. Cela augmenterait le nombre de Vrais Positifs mais également le nombre de Faux Positifs. L'impact serait d'augmenter le recall positif au prix d'une réduction de la précision positive.*  </span>
+# 
+# $$ PositiveRecall = {True Positive \over (True Positive + False Negative)} $$
+# 
+# - <span style="background-color: #ABE8CC">*La proposition du ministre de l'économie requièrerait d'avoir un maximum de Vrais Positifs parmi les accidents prédits positifs et donc d'utiliser un cutoff haut, qui permettrait d'augmenter la probabilité que les accidents prédits graves le soient vraiment. Cela baisserait le nombre de Faux Positifs mais également le nombre de Vrais Positifs. L'impact serait d'augmenter la précision positive, au coût d'une baisse du recall positif.*</span>
+# 
+# $$ PositivePrecision = {True Positive \over (True Positive + False Positive)} $$
+# 
+# - <span style="background-color: #97BFF9">*La proposition de l'expert analyste est un entre deux, pour lequel on essayerait d'avoir un nombre de Vrais Positifs et de Vrais Négatifs élevé, ce qui requièrerait d'utiliser le cutoff de Youden (cutoff maximisant la formule 'recall positif + recall négatif'). Il sera un bon compromis pour avoir un recall positif élevé tout en ayant un recall négatif élevé.*  </span>
+# 
+# $$ NegativeRecall = {True Negative \over (True Negative + False Positive)} $$
+# 
+# Le Youden Index est défini comme le cut off maximisant la formule suivant.  
+# 
+# $max(PositiveRecall_{cutOff} + NegativeRecall_{cutOff})$ for $i = 0,...,1$
 # 
 # Une fois le cutoff choisi, l'objectif serait de déterminer les facteurs qui prédisent les accidents sévères afin de faire des optimisations sur les infrastructures (lumières supplémentaires, limitations de vitesse, sens de circulation, ...).  
 
 # ### Predictions with XGBoost
 
-# In[5]:
+# In[6]:
 
 
 ### Import libraries
@@ -350,7 +366,7 @@ print(classification_report(y_test.astype('int'), xgb_preds_test_bin05))
 print(classification_report(y_test.astype('int'), xgb_preds_test_bin07))
 
 
-# In[251]:
+# In[9]:
 
 
 ### Function defining Youden index
@@ -369,7 +385,7 @@ print('Youden index=', round(youden_cutoff_xgb, 2))
 
 # ##### ROC curve
 
-# In[7]:
+# In[8]:
 
 
 ### AUC
@@ -398,7 +414,7 @@ plt.annotate('Youden index (0.43)', xy=(1-0.78, 0.67), xytext=(1-0.68, 0.66), ar
 # ##### Finding optimal cutoff for each model
 # ##### 1- XGBoost
 
-# In[8]:
+# In[10]:
 
 
 ### Performances at each cutoff
@@ -437,7 +453,7 @@ df_cutoff_recall_precision_xgb['f1_0'] = 2 * (df_cutoff_recall_precision_xgb['pr
 df_cutoff_recall_precision_xgb['f1_1'] = 2 * (df_cutoff_recall_precision_xgb['precision_1'] * df_cutoff_recall_precision_xgb['recall_1']) / (df_cutoff_recall_precision_xgb['precision_1'] + df_cutoff_recall_precision_xgb['recall_1'])
 
 
-# In[9]:
+# In[11]:
 
 
 df_cutoff_recall_precision_xgb
@@ -651,7 +667,7 @@ plt.annotate('Youden index', xy=(1-0.74, 0.65), xytext=(1-0.74, 0.65));
 df_cutoff_recall_precision_xgb
 
 
-# In[127]:
+# In[16]:
 
 
 ### Plots of XGBoost performance criteria against cutoff values
