@@ -253,7 +253,35 @@ sage_values.plot(feature_names)
 # 
 # - <span style="background-color: #97BFF9">*L'expert analyste propose un entre-deux afin que les dépenses soient faites pour réduire un nombre important d'accidents graves, sans que cela concerne trop d'accidents bénins.*</span>
 # 
-# *D'un point de vue statistique, voici à quoi correspondrait chaque proposition :*
+# *D'un point de vue statistique, voici à quoi correspondrait chaque proposition.*
+# 
+# Ici, nous pouvons voir la distribution des probabilités pour chaque accident d'être grave ou non selon les prédictions du XGBoost.  
+
+# In[86]:
+
+
+import seaborn as sns
+
+density_plot_XGBoost = sns.displot(x=xgb_preds_test, hue=y_test, 
+            kind='kde', fill=True, height=5, aspect=2, palette=['#4777F5', '#F54747'])
+
+density_plot_XGBoost._legend.remove()
+plt.xlabel("XGBoost probability value")
+plt.ylabel("Density")
+plt.title("XGBoost probability distribution against accident gravity")
+plt.legend(title='Accident', loc='upper left', labels=['Severe', 'Mild'])
+plt.axvline(x=0.6, color='k', linestyle='--')
+plt.annotate('', xy=(0.75, 1.3), xytext=(0.65, 1.3), arrowprops={'facecolor' : '#F54747'})
+plt.annotate('', xy=(0.45, 1.3), xytext=(0.55, 1.3), arrowprops={'facecolor' : '#4777F5'})
+plt.annotate("Positive test", (0.64, 1.4), fontsize=10)
+plt.annotate("Negative test", (0.43, 1.4), fontsize=10)
+plt.annotate("True Positive", (0.75, 0.4), fontsize=10)
+plt.annotate("False Positive", (0.7, 0.075), fontsize=10)
+plt.annotate("True Negative", (0.15, 0.8), fontsize=10)
+plt.annotate("False Negative", (0.3, 0.2), fontsize=10);
+
+
+# A partir de ces distributions, nous pouvons choisir un seuil/cutoff et construire un tableau de contingence comme nous pouvons voir ci-dessous.  
 # 
 # |  | Negative Prediction | Positive Prediction |
 # | --- | --- | --- |
@@ -274,13 +302,13 @@ sage_values.plot(feature_names)
 # 
 # Le Youden Index est défini comme le cut off maximisant la formule suivant.  
 # 
-# $max(PositiveRecall_{cutOff} + NegativeRecall_{cutOff})$ for $i = 0,...,1$
+# $max(PositiveRecall_{cutOff} + NegativeRecall_{cutOff})$ for $cutOff = 0,...,1$
 # 
 # Une fois le cutoff choisi, l'objectif serait de déterminer les facteurs qui prédisent les accidents sévères afin de faire des optimisations sur les infrastructures (lumières supplémentaires, limitations de vitesse, sens de circulation, ...).  
 
 # ### Predictions with XGBoost
 
-# In[6]:
+# In[5]:
 
 
 ### Import libraries
