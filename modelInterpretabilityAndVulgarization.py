@@ -370,7 +370,7 @@ plt.annotate("False Negative", (0.3, 0.2), fontsize=10);
 
 # ##### ROC curve
 
-# In[7]:
+# In[6]:
 
 
 ### AUC
@@ -381,7 +381,7 @@ roc_auc_xgb
 
 # ##### Youden index
 
-# In[8]:
+# In[7]:
 
 
 ### Function defining Youden index
@@ -456,7 +456,7 @@ df_summary_xgb = round(df_cutoff_recall_precision_xgb[['seuils', 'precision_0', 
 
 # ##### ROC curve
 
-# In[12]:
+# In[8]:
 
 
 ### Predictions
@@ -470,7 +470,7 @@ roc_auc_en
 
 # ##### Youden index
 
-# In[13]:
+# In[9]:
 
 
 ### Function defining Youden index
@@ -489,7 +489,7 @@ print('Youden index=', round(youden_cutoff_en, 2))
 
 # ##### 80% recall and 80% precision cutoffs
 
-# In[14]:
+# In[10]:
 
 
 ### Performances at each cutoff
@@ -597,24 +597,24 @@ print(pd.concat([df_summary_xgb.loc[(round(df_cutoff_recall_precision_xgb.recall
 
 
 ##### Elastic Net performances at cutoffs of interest
-print(pd.concat([df_summary_xgb.loc[(round(df_cutoff_recall_precision_en.recall_1, 2)==0.8) | (round(df_cutoff_recall_precision_en.precision_1, 2)==0.8)].iloc[[0, -1]],
+print(pd.concat([df_summary_en.loc[(round(df_cutoff_recall_precision_en.recall_1, 2)==0.8) | (round(df_cutoff_recall_precision_en.precision_1, 2)==0.8)].iloc[[0, -1]],
                  pd.DataFrame(df_summary_en.loc[(round(df_cutoff_recall_precision_en.seuils, 2)==round(youden_cutoff_en, 2))].iloc[-1]).transpose()]))
 
 
-# In[18]:
+# In[15]:
 
 
 ### ROC curves
 plt.figure(figsize=(6, 6))
 # High positive recall
-plt.plot(1-0.617, 0.8, 'x', color='#D67676', markersize=10, mew=3)
-plt.plot(1-0.55, 0.8, 'x', color='#D67676', markersize=10, mew=3)
+plt.plot(1-0.617, 0.8, 'x', color='#A9845A', markersize=10, mew=3)
+plt.plot(1-0.55, 0.8, 'x', color='#A9845A', markersize=10, mew=3)
 # High positive precision
-plt.plot(1-0.925, 0.45, 'x', color='#76D680', markersize=10, mew=3)
-plt.plot(1-0.93, 0.4, 'x', color='#76D680', markersize=10, mew=3)
+plt.plot(1-0.925, 0.45, 'x', color='#5AAA85', markersize=10, mew=3)
+plt.plot(1-0.93, 0.4, 'x', color='#5AAA85', markersize=10, mew=3)
 # Youden
-plt.plot(1-0.78, 0.67, 'x', color='#76C3D6', markersize=10, mew=3)
-plt.plot(1-0.77, 0.64, 'x', color='#76C3D6', markersize=10, mew=3)
+plt.plot(1-0.78, 0.67, 'x', color='#4F70A0', markersize=10, mew=3)
+plt.plot(1-0.77, 0.64, 'x', color='#4F70A0', markersize=10, mew=3)
 # ROC
 plt.plot(fpr_xgb, tpr_xgb, color='black', lw=2, label=['XGBoost', round(roc_auc_xgb, 2)])
 plt.plot(fpr_en, tpr_en, color='grey', lw=2, label=['elastic net', round(roc_auc_en, 2)])
