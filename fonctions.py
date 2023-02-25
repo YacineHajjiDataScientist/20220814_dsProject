@@ -1,12 +1,12 @@
 import pandas as pd
 import numpy as np
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 from datetime import date, datetime
-
-# Filtre à effectuer à un moment :
-# On filtre les accidents qui ne se sont pas produits à Bornel, Betz ou Auneuil qui sont dans le TOP30 des villes les plus accidentées
-# peu crédible
-# dfCarac_filtre = dfCarac_BPA[(dfCarac_BPA.nom_commune != "Bornel") & (dfCarac_BPA.nom_commune != "Betz") & (dfCarac_BPA.nom_commune != "Auneuil")]
+import math
+from scipy.stats import chi2_contingency
+import plotly.express as px
+import geojson
 
 
 def mise_au_format_dep(df):
@@ -176,12 +176,12 @@ def formatage_table_carac(
     dfCarac = dfCarac.drop(["lat", "long", "gps", "adr"], axis=1)
 
     # Retraitement de l'année de XX à 20XX
-    dfCarac["an"] = dfCarac["an"].apply(lambda x: (2000 + x) if x < 2000 else x)
-
+    dfCarac["year"] = dfCarac["an"].apply(lambda x: (2000 + x) if x < 2000 else x)
     # Construction de la variable date à partir du jour, du mois et de l'an
     dfCarac["date"] = dfCarac.apply(
-        lambda x: datetime(x["an"], x["mois"], x["jour"]), axis=1
+        lambda x: datetime(x["year"], x["mois"], x["jour"]), axis=1
     )
+
     dfCarac["date"] = pd.to_datetime(dfCarac["date"])
     # Transformation en variable catégorielle du mois
     dfCarac["mois_label"] = dfCarac["mois"]
@@ -204,14 +204,10 @@ def formatage_table_carac(
     )
 
     # Construction de la variable jour de la semaine
-    dfCarac["weekday"] = dfCarac["date"].dt.weekday
-
+    dfCarac["weekday"] = dfCarac["date"].apply(lambda x: x.weekday())
     # Construction de la variable heure de la journée
     dfCarac["hrmn"] = dfCarac["hrmn"].replace("\:", "", regex=True).astype(int)
     dfCarac["hour"] = dfCarac["hrmn"] // 100
-
-    # Year of accident
-    dfCarac["year"] = dfCarac["date"].dt.year
 
     # Construction de la variable hourGrp: nuit (22h - 6h) - jour heures creuses (10h-16h) - jour heures de pointe (7-9h, 17-21h)
     hourConditions = [
@@ -237,9 +233,9 @@ def formatage_table_carac(
     )
     dfDateFerie = pd.DataFrame({"dateFerie": dateFerie})
     dfCarac["dateFerie"] = np.where((dfCarac.date.isin(dfDateFerie.dateFerie)), 1, 0)
-    dfCarac["dateWeekend"] = np.where((dfCarac.weekday >= 5), 1, 0)
+    dfCarac["dateWeekend"] = np.where((dfCarac["weekday"] >= 5), 1, 0)
     dfCarac["dateFerieAndWeekend"] = np.where(
-        (dfCarac.date.isin(dfDateFerie.dateFerie) | (dfCarac.weekday >= 5)), 1, 0
+        (dfCarac.date.isin(dfDateFerie.dateFerie) | (dfCarac["weekday"] >= 5)), 1, 0
     )
 
     # On utilise la fonction mise_au_format_dep pour normaliser les départements dans les deux tables dfCarac et dfCommunes
@@ -365,7 +361,7 @@ def formatage_table_lieux(nom_fichier_lieux):
     dfLieux["infra"] = dfLieux["infra"].replace([-1], [np.nan])
 
     # Retrait des variables que l'on ne souhaite pas utiliser par la suite
-    dfLieux = dfLieux.drop(["nbv", "vosp", "plan", "lartpc", "larrout", "vma"], axis=1)
+    dfLieux = dfLieux.drop(["nbv", "vosp", "plan", "vma"], axis=1)
 
     return dfLieux
 
@@ -482,9 +478,6 @@ def formatage_table_usagers(nom_fichier_usagers, table_carac):
     dfUsagers = dfUsagers.merge(right=dfAgeMeanConductors, how="left", on="Num_Acc")
     dfUsagers = dfUsagers.merge(right=dfAgeMeanNonConductors, how="left", on="Num_Acc")
 
-
-
-
     return dfUsagers
 
 
@@ -569,7 +562,6 @@ def construction_variables_supp(dfVehicules, dfUsagers):
         dfMergeUsVeh[["Num_Acc", "choc_cote"]].groupby(["Num_Acc"]).sum().reset_index()
     )
 
-
     # Construction d'un dataframe d'indicatrices et de compteurs par accident à partir de la table Usagers
     dfAtLeastOneByAccident = pd.DataFrame(
         {
@@ -635,9 +627,7 @@ def construction_variables_supp(dfVehicules, dfUsagers):
             ].mean(),
         }
     ).reset_index()
-    
-    
-    
+
     dfAtLeastOneByAccident["etatpGrp_pieton_alone"] = np.where(
         dfAtLeastOneByAccident.groupby("Num_Acc")["nb_etatpGrp_pieton_alone"].sum()
         >= 1,
@@ -660,8 +650,7 @@ def construction_variables_supp(dfVehicules, dfUsagers):
         0,
     )
 
-
-        # Construction d'un dataframe regroupant l'ensemble des variables supplémentaires constituées
+    # Construction d'un dataframe regroupant l'ensemble des variables supplémentaires constituées
     dfVarSuppVeh = dfVeh_type_veh.merge(dfNombreVehicule, on="Num_Acc")
     dfVarSuppVeh = dfVarSuppVeh.merge(dfVehicules_obs, on="Num_Acc")
     dfVarSuppVeh = dfVarSuppVeh.merge(dfMergeUsVeh, on="Num_Acc", how="left")
@@ -744,7 +733,7 @@ def construction_table_travail(dfLieux, dfCarac, dfVarSupp):
 
     # Modification de l'index
     dfPool = dfPool.set_index("Num_Acc")
-    
+
     return dfPool
 
 
@@ -846,4 +835,264 @@ def selection_features_ML(dfPool):
     print(features_matrix.shape)
     target.to_pickle("20230225_table_target.csv")
     print(target.shape)
+
+
+def countplot_base(table, variable, title, palette, xticks=[], label_xticks=[]):
+    # Fonction permettant d'afficher un countplot titré d'une variable pour une table donnée
+    plt.figure(figsize=(8, 6))
+    sns.countplot(data=table, x=variable, palette=palette)
+    if xticks != []:
+        plt.xticks(xticks, label_xticks)
+    plt.hlines(
+        y=len(table[variable]) / len(table[variable].unique()),
+        xmin=-0.5,
+        xmax=len(table[variable].unique()) - 0.5,
+        color="blue",
+        alpha=0.4,
+    )
+    plt.title(title)
+
+
+def barplot_variable(
+    table, feature, target, title, xticks=[], label_xticks=[], table_usager=0
+):
+    # Fonction permettant d'afficher un barplot titré de la variable cible selon une feature (catégorielle)
+    tableGby = (
+        table.groupby([feature])[target]
+        .value_counts(normalize=True)
+        .rename("percentage")
+        .mul(100)
+        .reset_index()
+        .sort_values(target)
+    )
+
+    # Display plotx
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    if table_usager == 0:
+        sns.barplot(
+            x=feature,
+            y="percentage",
+            hue=target,
+            data=tableGby,
+            palette=["#C8C8C8", "#F4B650", "#F45050"],
+        )
+        if xticks != []:
+            plt.xticks(xticks, label_xticks)
+    else:
+        sns.barplot(
+            x=feature,
+            y="percentage",
+            hue=target,
+            data=tableGby,
+            palette=["grey", "#C8C8C8", "#F4B650", "#F45050"],
+        )
+
+    plt.title(title)
+
+
+def heatmap_crosstable(table, feature, target, title):
+    # Fonction permettant d'afficher une heatmap de la variable explicative avec la variable cible
+    # pour trouver les déséquilibres de répartition de la cible
+    dfCrosstab = pd.crosstab(table[feature], table[target], normalize=0).sort_values(
+        by=4, ascending=False
+    )
+
+    # Display plots
+    fig, ax = plt.subplots(1, 2, figsize=(10, 8))
+    sns.heatmap(dfCrosstab, annot=True, cmap="cubehelix", ax=ax[0])
+    sns.heatmap(
+        dfCrosstab.apply(
+            lambda x: x / table[target].value_counts(normalize=True), axis=1
+        ),
+        annot=True,
+        cmap="magma_r",
+        ax=ax[1],
+    )
+    plt.title(title)
+
+
+def kdeplot_variable(table, feature, target, borne_inf, borne_sup, title, palette):
+    # Fonction permettant d'afficher la distribution d'une variable
+    sns.kdeplot(
+        data=table[(table[feature] < borne_sup) & (table[feature] > borne_inf)],
+        x=feature,
+        hue=target,
+        fill=True,
+        common_norm=False,
+        palette=palette,
+        alpha=0.5,
+        linewidth=2,
+    )
+    plt.title(title)
+
+
+def barplot_heatmap_associated(
+    table,
+    feature,
+    target,
+    title_countplot,
+    title_heatmap,
+    xticks_labels_cntplot=[],
+    xticks_labels_heatmap=[],
+    x_ticks_label=0,
+):
+    # Fonction permettant d'afficher un countplot et une heatmap de l'étude d'une feature sur deux graphiques à côté
+
+    # Initiating gravity proportion of CCA lum variable
+    dfTarget = table[target].value_counts(normalize=True)
+
+    dfFeatureCrosstab = pd.crosstab(
+        table[feature],
+        table[target],
+        normalize=0,
+    ).sort_values(by=4, ascending=False)
+
+    # Initiating dataframe grouped by hour
+    dfTargetGby = (
+        table.groupby([feature])[target]
+        .value_counts(normalize=True)
+        .rename("percentage")
+        .mul(100)
+        .reset_index()
+        .sort_values(target)
+    )
+
+    # Display plots
+    fig, ax = plt.subplots(1, 2, figsize=(12, 8))
+    # 1st plot
+    sns.barplot(
+        x=feature,
+        y="percentage",
+        hue=target,
+        data=dfTargetGby,
+        palette=["#C8C8C8", "#F4B650", "#F45050"],
+        ax=ax[0],
+    )
+    # adding horizontal overall proportion by gravity
+    ax[0].axhline(y=dfTarget.loc[2] * 100, color="#C8C8C8", linestyle="--")
+    ax[0].axhline(y=dfTarget.loc[3] * 100, color="#F4B650", linestyle="--")
+    ax[0].axhline(y=dfTarget.loc[4] * 100, color="#F45050", linestyle="--")
+
+    # text outside the plot
+    if x_ticks_label == 1:
+        ax[0].set_xticks(np.arange(0, len(xticks_labels_cntplot), 1))
+        ax[0].set_xticklabels(xticks_labels_cntplot)
+    ax[0].set_title(title_countplot)
+    ax[0].set_xlabel("")
+    ax[0].set_ylabel("%", rotation=0)
+    # 2nd plot
+    sns.heatmap(
+        dfFeatureCrosstab.apply(
+            lambda x: x / table[target].value_counts(normalize=True),
+            axis=1,
+        ),
+        annot=True,
+        cmap="magma_r",
+        ax=ax[1],
+    )
+    # text outside the plot
+    ax[1].set_xticks([0.5, 1.5, 2.5])
+    ax[1].set_xticklabels(xticks_labels_heatmap)
+    if x_ticks_label == 1:
+        ax[1].set_yticks([0.5, 1.5, 2.5, 3.5, 4.5])
+        ax[1].set_yticklabels(
+            xticks_labels_cntplot,
+            rotation=0,
+        )
+    ax[1].set_title(title_heatmap)
+    ax[1].set_xlabel("")
+    ax[1].set_ylabel("")
+
+
+def plot_std(table, feature, title, color):
+    # Fonction permettant d'afficher une variable
+    varDate = table[feature].value_counts().sort_index()
+    # Display plot
+    plt.figure(figsize=(10, 5))
+    plt.plot(varDate.index, varDate, color=color)
+    plt.axhline(y=varDate.mean(), color="k", linestyle="--")
+    plt.title(title)
+
+    plt.ylim([0, varDate.max()])
+
+
+def V_cramer(tab, n):
+    # Fonction permettant de calculer le V de Cramer entre les variables d'une table
+    # Initiating objects
+    nrow, ncol = tab.shape
+    resultats_test = chi2_contingency(tab)
+    statistique = resultats_test[0]
+    # Computing objects
+    r = ncol - (((ncol - 1) ** 2) / (n - 1))
+    k = nrow - (((nrow - 1) ** 2) / (n - 1))
+    phi_squared = max(0, ((statistique / n) - (((ncol - 1) * (nrow - 1)) / (n - 1))))
+    V = math.sqrt((phi_squared / (min(k - 1, r - 1))))
+    return V
+
+
+def vCramer_table(df, listeVar, title):
+
+    # Fonction permettant d'afficher le heatmap des V de Cramer d'une table
+    resMatrixCarac = pd.DataFrame(
+        np.zeros(shape=(len(listeVar), len(listeVar))), index=listeVar, columns=listeVar
+    )
+    ### Filling dataframe (Carac)
+    for i in listeVar:
+        for j in listeVar:
+            tab = pd.crosstab(df[i], df[j])
+            resMatrixCarac[j][i] = round(V_cramer(tab, tab.sum().sum()), 2)
+    sns.heatmap(resMatrixCarac)
+    plt.title(title)
+
+
+def carto(table, geojson, feature, target, title, maximum=1000):
+    # Fonction permettant d'afficher une carte d'une feature par rapport à sa target
+    fig3 = px.choropleth_mapbox(
+        table,
+        locations=feature,
+        geojson=geojson,
+        color=target,
+        color_continuous_scale=["green", "orange", "red"],
+        range_color=[min(table[target]), min(max(table[target]),maximum)],
+        title=title,
+        mapbox_style="open-street-map",
+        center={"lat": 46, "lon": 2},
+        zoom=4,
+        opacity=0.6,
+    )
+
+    fig3.show()
+
+
+def formatage_geojson(fichier):
+    with open(fichier, encoding="UTF-8") as dep:
+        departement = geojson.load(dep)
+    for feature in departement["features"]:
+        feature["id"] = feature["properties"]["code"]
+    return departement
+
+
+
+def carte_densite_pop(title):
+    # Affichage de la densité de population par département
+    departement = formatage_geojson("departements.geojson")
+    densite = pd.read_csv("densite_pop.csv", sep=";")
+    densite["code"] = densite["code"].apply(
+        lambda x: "0" + x if len(x.strip()) == 1 else x
+    )
+    densite["densite"] = densite["densite"].fillna('0')
+    densite["densite"] = densite['densite'].apply(lambda x: str(x).replace(',','.'))
     
+    densite["densite"] = pd.to_numeric(densite["densite"])
+    carto(densite, departement, "code", "densite", title,maximum=250)
+
+
+def carte_gravite_moyenne(table, feature, target, title):
+    # Fonction permettant d'afficher la carte de la gravité moyenne d'accident par département
+    # On récupère une la position des départements  français
+    departement = formatage_geojson("departements.geojson")
+    gravite = table[[target, feature]].groupby(feature).mean().reset_index()
+    gravite.rename(columns={feature: "code"}, inplace=True)
+    carto(gravite, departement, "code", "grav", title)
+
