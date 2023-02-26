@@ -7,6 +7,32 @@ import math
 from scipy.stats import chi2_contingency
 import plotly.express as px
 import geojson
+from sklearn.model_selection import train_test_split, GridSearchCV, KFold
+
+from sklearn.metrics import roc_curve, auc, recall_score, precision_score, classification_report
+from sklearn.linear_model import (
+    LogisticRegression,
+    LinearRegression,
+    RidgeCV,
+    Lasso,
+    lasso_path,
+    LassoCV,
+    ElasticNetCV,
+    ElasticNet,
+)
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
+import xgboost as xgb
+from xgboost import XGBClassifier
+import lightgbm as lgb
+import itertools
+from time import time
+from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.models import Model
+from joblib import dump, load
+from sklearn.feature_selection import f_regression, SelectKBest, SelectFromModel
+import optuna
 
 
 def mise_au_format_dep(df):
@@ -1054,7 +1080,7 @@ def carto(table, geojson, feature, target, title, maximum=1000):
         geojson=geojson,
         color=target,
         color_continuous_scale=["green", "orange", "red"],
-        range_color=[min(table[target]), min(max(table[target]),maximum)],
+        range_color=[min(table[target]), min(max(table[target]), maximum)],
         title=title,
         mapbox_style="open-street-map",
         center={"lat": 46, "lon": 2},
@@ -1073,7 +1099,6 @@ def formatage_geojson(fichier):
     return departement
 
 
-
 def carte_densite_pop(title):
     # Affichage de la densité de population par département
     departement = formatage_geojson("departements.geojson")
@@ -1081,11 +1106,11 @@ def carte_densite_pop(title):
     densite["code"] = densite["code"].apply(
         lambda x: "0" + x if len(x.strip()) == 1 else x
     )
-    densite["densite"] = densite["densite"].fillna('0')
-    densite["densite"] = densite['densite'].apply(lambda x: str(x).replace(',','.'))
-    
+    densite["densite"] = densite["densite"].fillna("0")
+    densite["densite"] = densite["densite"].apply(lambda x: str(x).replace(",", "."))
+
     densite["densite"] = pd.to_numeric(densite["densite"])
-    carto(densite, departement, "code", "densite", title,maximum=250)
+    carto(densite, departement, "code", "densite", title, maximum=250)
 
 
 def carte_gravite_moyenne(table, feature, target, title):
@@ -1095,4 +1120,666 @@ def carte_gravite_moyenne(table, feature, target, title):
     gravite = table[[target, feature]].groupby(feature).mean().reset_index()
     gravite.rename(columns={feature: "code"}, inplace=True)
     carto(gravite, departement, "code", "grav", title)
+
+
+def get_features_importantes(table):
+    # Fonction qui permettant de retirer des variables parmi les moins informatives (affichées à la fin de l'exécution)
+    target = table.gravGrp_2_34
+    features = table.drop("gravGrp_2_34", axis=1)
+    features_matrix = pd.get_dummies(features, drop_first=True)
+    print(len(set(features_matrix.columns)))
+    print(len(features_matrix.columns))
+    X_train, X_test, y_train, y_test = train_test_split(
+        features_matrix, target, test_size=0.2, random_state=1
+    )
+    train = xgb.DMatrix(data=X_train, label=y_train)
+    test = xgb.DMatrix(data=X_test, label=y_test)
+
+    params = {"booster": "gbtree", "learning_rate": 1, "objective": "binary:logistic"}
+    xgb1 = xgb.train(
+        params=params,
+        dtrain=train,
+        num_boost_round=50,
+        evals=[(train, "train"), (test, "eval")],
+    )
+    xgb1_weight = pd.DataFrame(
+        xgb1.get_score(importance_type="weight").items(), columns=["weight", "value"]
+    ).sort_values("value", ascending=False)
+    xgb1_gain = pd.DataFrame(
+        xgb1.get_score(importance_type="gain").items(), columns=["gain", "value"]
+    ).sort_values("value", ascending=False)
+    xgb1_cover = pd.DataFrame(
+        xgb1.get_score(importance_type="cover").items(), columns=["cover", "value"]
+    ).sort_values("value", ascending=False)
+    xgb1_gain_total = pd.DataFrame(
+        xgb1.get_score(importance_type="total_gain").items(),
+        columns=["total_gain", "value"],
+    ).sort_values("value", ascending=False)
+    xgb1_cover_total = pd.DataFrame(
+        xgb1.get_score(importance_type="total_cover").items(),
+        columns=["total_cover", "value"],
+    ).sort_values("value", ascending=False)
+
+    xgb1_27_last_features = pd.concat(
+        [
+            xgb1_weight[["weight"]].reset_index(drop=True),
+            xgb1_gain[["gain"]].reset_index(drop=True),
+            xgb1_cover[["cover"]].reset_index(drop=True),
+            xgb1_gain_total[["total_gain"]].reset_index(drop=True),
+            xgb1_cover_total[["total_cover"]].reset_index(drop=True),
+        ],
+        axis=1,
+    ).tail(27)
+
+    xgb1_list_27_last_features = itertools.chain(
+        xgb1_27_last_features.weight.values.tolist(),
+        xgb1_27_last_features.gain.values.tolist(),
+        xgb1_27_last_features.cover.values.tolist(),
+        xgb1_27_last_features.total_gain.values.tolist(),
+        xgb1_27_last_features.total_cover.values.tolist(),
+    )
+    print(pd.DataFrame(list(xgb1_list_27_last_features)).value_counts().head(27))
+
+
+def get_initial_model_results(type_modele, X_train, X_test, y_train, y_test):
+    # Fonction permettant de récupérer l'AUC d'un modèle selon son type
+    t0 = time()
+    if type_modele == "Régression Logistique":
+        lr = LogisticRegression()
+        lr.fit(X_train, y_train)
+        pred_test = lr.predict_proba(X_test)[:, 1]
+
+    elif type_modele == "Random Forest":
+        rf = RandomForestClassifier()
+        rf.fit(X_train, y_train)
+        pred_test = rf.predict_proba(X_test)[:, 1]
+    elif type_modele == "LightGBM":
+        lgbm = lgb.LGBMClassifier()
+        lgbm.fit(X_train, y_train)
+        pred_test = lgbm.predict_proba(X_test)[:, 1]
+
+    elif type_modele == "XGBoost":
+        train = xgb.DMatrix(data=X_train, label=y_train)
+        test = xgb.DMatrix(data=X_test, label=y_test)
+        params = {
+            "booster": "gbtree",
+            "learning_rate": 1,
+            "objective": "binary:logistic",
+        }
+        clf_xgb = xgb.train(
+            params=params,
+            dtrain=train,
+            num_boost_round=50,
+            evals=[(train, "train"), (test, "eval")],
+        )
+        pred_test = clf_xgb.predict(test)
+    elif type_modele == "MLP":
+        inputs = Input(shape=(70), name="Input")
+        dense1 = Dense(units=35, activation="tanh", name="Couche_1")
+        dense4 = Dense(units=2, activation="softmax", name="Couche_4")
+        x = dense1(inputs)
+        outputs = dense4(x)
+        model = Model(inputs=inputs, outputs=outputs)
+        model.compile(
+            loss="sparse_categorical_crossentropy",
+            optimizer="adam",
+            metrics=["accuracy"],
+        )
+        model.fit(X_train, y_train, epochs=50, batch_size=5000, validation_split=0.1)
+        pred_test = model.predict(X_test)[:, 1]
+
+    fpr, tpr, seuils = roc_curve(y_test, pred_test, pos_label=1)
+    roc_auc = auc(fpr, tpr)
+    if type_modele == "Régression Logistique":
+        plt.plot(
+            np.arange(0, 1, 0.01),
+            np.arange(0, 1, 0.01),
+            "b--",
+            label=["Reference", "0.50"],
+        )
+    plt.plot(fpr, tpr, lw=2, label=[type_modele, round(roc_auc, 2)])
+    plt.ylabel("Taux vrais positifs")
+    plt.xlabel("Taux faux positifs")
+    plt.title("Courbes ROC")
+    plt.legend(loc="lower right")
+
+    print("Le modèle a été entrainé en : ", str(round(time() - t0)), " secondes.")
+    print("L'AUC initial pour le modèle : " + type_modele + " est de : " + str(roc_auc))
+    return roc_auc
+
+
+def exploration_lr(X_train, X_test, y_train, y_test):
+
+    # Standardisation de X_train, y_train pour mettre les features au même niveau
+    scaler = StandardScaler()
+    train_scaled = scaler.fit_transform(X_train)
+    test_scaled = scaler.transform(X_test)
+    lr = LinearRegression()
+    ridgeregcv = RidgeCV(alphas=(0.001, 0.01, 0.1, 0.25, 0.5, 0.9), cv=10)
+    lassoregcv = LassoCV(alphas=(0.001, 0.01, 0.1, 0.25, 0.5, 0.9), cv=10)
+
+    lr.fit(train_scaled, y_train)
+    ridgeregcv.fit(train_scaled, y_train)
+    lassoregcv.fit(train_scaled, y_train)
+
+    # Comparing basic linear, Ridge, Lasso regressions coefficients
+    feats = list(X_train.columns)
+    feats.insert(0, "intercept")
+    coeffs1 = list(lr.coef_)
+    coeffs1.insert(0, lr.intercept_)
+    coeffs2 = list(ridgeregcv.coef_)
+    coeffs2.insert(0, ridgeregcv.intercept_)
+    coeffs3 = list(lassoregcv.coef_)
+    coeffs3.insert(0, lassoregcv.intercept_)
+
+    print(
+        pd.DataFrame(
+            {"coeflinreg": coeffs1, "coefridgereg": coeffs2, "coeflassoreg": coeffs3},
+            index=feats,
+        ).transpose()
+    )
+
+    alpha_path, coefs_lasso, _ = lasso_path(
+        train_scaled, y_train, alphas=(0.001, 0.01, 0.1, 0.2, 0.4, 0.8, 1)
+    )
+
+    plt.figure(figsize=(20, 10))
+    for i in range(coefs_lasso.shape[0]):
+        plt.plot(alpha_path, coefs_lasso[i, :], "-", label=X_train.columns[i])
+    plt.legend()
+    plt.figure(figsize=(20, 30))
+    plt.barh(y=X_train.columns, width=lassoregcv.coef_)
+
+
+def optimize_elastic_net(X_train, X_test, y_train, y_test):
+    # Optimisation d'un modèle ElasticNet par validation croisée et enregistrement du modèle
+    scaler = StandardScaler()
+    train_scaled = scaler.fit_transform(X_train)
+    test_scaled = scaler.transform(X_test)
+
+    ##### Initiating basic ElasticNet()
+    eNet = ElasticNet()
+
+    parameters = {
+        #     'max_iter': [1, 5, 10],
+        "alpha": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
+        "l1_ratio": np.arange(0.1, 1.0, 0.1),
+    }
+
+    kf = KFold(n_splits=3, shuffle=True, random_state=1)
+
+    ### GridSearchCV
+    grid_search_eNet = GridSearchCV(
+        estimator=eNet,
+        param_grid=parameters,
+        scoring="roc_auc",
+        n_jobs=1,
+        cv=kf,
+        verbose=3,
+        return_train_score=True,
+    )
+
+    grid_search_eNet.fit(train_scaled, y_train)
+
+    return (grid_search_eNet.best_params_)
+
+def save_elasticnet(X_train, y_train, alpha, l1_ratio) :
+    eNet = ElasticNet(alpha=alpha, l1_ratio=l1_ratio)
+    eNet.fit(X_train, y_train)
+    dump(eNet, "optimal_model_en.joblib")
+
+
+def test_parametres_modele(type_modele, X_train, y_train, parameters, save_as= ""):
+
+    if type_modele == "XGBoost":
+        estimator = XGBClassifier(objective="binary:logistic", num_boost_round=50, seed=1)
+    elif type_modele == "Random Forest" :
+        estimator  = RandomForestClassifier()
+
+    kf = KFold(n_splits=5, shuffle=True, random_state=1)
+
+    ### GridSearchCV
+    grid_search = GridSearchCV(
+        estimator=estimator,
+        param_grid=parameters,
+        scoring="roc_auc",
+        n_jobs=-1,
+        cv=kf,
+        verbose=1,
+        return_train_score=True,
+    )
+
+    grid_search.fit(X_train, y_train)
+
+    print(grid_search.best_params_)
+    dfGridSearch = pd.DataFrame(grid_search.cv_results_)[
+        [
+            "params",
+            "rank_test_score",
+            "mean_test_score",
+            "mean_train_score",
+            "std_test_score",
+            "std_train_score",
+        ]
+    ]
+    dfGridSearch.sort_values("rank_test_score")
+    results = [
+        "mean_test_score",
+        "mean_train_score",
+        "std_test_score",
+        "std_train_score",
+    ]
+
+    train_scores = grid_search.cv_results_["mean_train_score"]
+    test_scores = grid_search.cv_results_["mean_test_score"]
+    plt.figure(figsize=(8, 6))
+    plt.plot(train_scores, label="train", color="#8940B8")
+    plt.plot(test_scores, label="test", color="#10CB8A")
+    plt.xticks(range(18))
+    plt.ylim((0.75, 0.85))
+    plt.legend(loc="best")
+    plt.show()
+    
+    if save_as != "" : 
+         dump(grid_search, save_as)
+
+    return dfGridSearch
+
+
+def save_xgboost(X_train, X_test, y_train, y_test, ):
+    # Fonction permettant d'enregistrer le modèle XGBoost optimal
+
+    optimal_xgb = XGBClassifier(max_depth = 6, learning_rate = 0.1, objective =  "binary:logistic", early_stopping_rounds = 10,
+                                eval_metric ='auc',  n_estimators = 500)
+    optimal_xgb.fit(X_train, y_train,eval_set = [(X_test, y_test)])
+    ### Optimal XGBoost after tuning
+ 
+    dump(optimal_xgb, "optimal_xgb.joblib")
+
+def cutoff_youdens_j(fpr_xgb, tpr_xgb, seuils):
+    # Fonction permettant de récupérer le Youden Index 
+    j_scores = tpr_xgb - fpr_xgb
+    j_ordered = sorted(zip(j_scores, seuils))
+    return j_ordered[-1][1]
+
+
+def get_youden_index_and_cutoffs(predictions, y_test) :
+    # Fonction permettant de récupérer le Youden_Index et le cutoff optimal 
+    
+    # Récupération de la ROC Curve
+    fpr, tpr, seuils = roc_curve(y_test.astype('int'), predictions, pos_label=1)
+
+    ### Finding Youden cutoff
+    youden_cutoff = cutoff_youdens_j(fpr, tpr, seuils)
+
+    ### Performance criteria at Youden cutoff
+    # print(classification_report(y_test.astype('int'), np.where(xgb_preds_test >= youden_cutoff_xgb, 1, 0)))
+    print('Youden index=', round(youden_cutoff, 2))    
+        
+    ### Performances at each cutoff
+    # Initiating DataFrame
+    df_cutoff_recall_precision = pd.DataFrame({'seuils':seuils, 'fpr':fpr, 'tpr':tpr})
+
+    # Filling DataFrame through loop
+    nb_neg_pred_neg = []
+    nb_pos_pred_neg = []
+    nb_neg_pred_pos = []
+    nb_pos_pred_pos = []
+    for i in df_cutoff_recall_precision['seuils']:
+        nb_neg_pred_neg.append(np.logical_and(predictions<i , y_test.astype('int')==0).sum())
+        nb_pos_pred_neg.append(np.logical_and(predictions<i , y_test.astype('int')==1).sum())
+        nb_neg_pred_pos.append(np.logical_and(predictions>=i , y_test.astype('int')==0).sum())
+        nb_pos_pred_pos.append(np.logical_and(predictions>=i , y_test.astype('int')==1).sum())
+
+    # Filling DataFrame with remaining estimands
+    df_cutoff_recall_precision['nb_neg_pred_neg'] = nb_neg_pred_neg
+    df_cutoff_recall_precision['nb_pos_pred_neg'] = nb_pos_pred_neg
+    df_cutoff_recall_precision['nb_neg_pred_pos'] = nb_neg_pred_pos
+    df_cutoff_recall_precision['nb_pos_pred_pos'] = nb_pos_pred_pos
+    df_cutoff_recall_precision['nb_neg'] = sum(y_test.astype('int')==0)
+    df_cutoff_recall_precision['nb_pos'] = sum(y_test.astype('int')==1)
+    df_cutoff_recall_precision['nb_pred_neg'] = df_cutoff_recall_precision['nb_neg_pred_neg'] + df_cutoff_recall_precision['nb_pos_pred_neg']
+    df_cutoff_recall_precision['nb_pred_pos'] = df_cutoff_recall_precision['nb_neg_pred_pos'] + df_cutoff_recall_precision['nb_pos_pred_pos']
+
+    # Computing performance criteria at each threshold
+    df_cutoff_recall_precision['precision_0'] = df_cutoff_recall_precision['nb_neg_pred_neg'] / df_cutoff_recall_precision['nb_pred_neg']
+    df_cutoff_recall_precision['precision_1'] = df_cutoff_recall_precision['nb_pos_pred_pos'] / df_cutoff_recall_precision['nb_pred_pos']
+    df_cutoff_recall_precision['recall_0'] = df_cutoff_recall_precision['nb_neg_pred_neg'] / df_cutoff_recall_precision['nb_neg']
+    df_cutoff_recall_precision['recall_1'] = df_cutoff_recall_precision['nb_pos_pred_pos'] / df_cutoff_recall_precision['nb_pos']
+
+    # f1 scores
+    df_cutoff_recall_precision['f1_0'] = 2 * (df_cutoff_recall_precision['precision_0'] * df_cutoff_recall_precision['recall_0']) / (df_cutoff_recall_precision['precision_0'] + df_cutoff_recall_precision['recall_0'])
+    df_cutoff_recall_precision['f1_1'] = 2 * (df_cutoff_recall_precision['precision_1'] * df_cutoff_recall_precision['recall_1']) / (df_cutoff_recall_precision['precision_1'] + df_cutoff_recall_precision['recall_1'])
+
+    df_summary = round(df_cutoff_recall_precision[['seuils', 'precision_0', 'precision_1', 'recall_0', 'recall_1', 'f1_0', 'f1_1']], 2)    
+    
+    return df_summary
+
+
+
+def plot_density_model(modele, predictions, y_test) :
+    # Fonction permettant d'afficher la distributions des probabilités évaluées par le modèle
+    # Plot
+    plt.figure(figsize=(10,4))
+    density_plot = sns.displot(x=predictions, hue=y_test, 
+                kind='kde', fill=True, height=5, aspect=2, palette=['#4777F5', '#F54747'])
+    # Adding cosmetic options
+    density_plot._legend.remove()
+    plt.xlabel(modele + " probability value")
+    plt.ylabel("Density")
+    plt.title(modele + " probability distribution against accident gravity")
+    plt.legend(title='Accident', loc='upper left', labels=['Severe', 'Mild'])
+    plt.axvline(x=0.6, color='k', linestyle='--')
+    plt.annotate('', xy=(0.75, 1.3), xytext=(0.65, 1.3), arrowprops={'facecolor' : '#F54747'})
+    plt.annotate('', xy=(0.45, 1.3), xytext=(0.55, 1.3), arrowprops={'facecolor' : '#4777F5'})
+    plt.annotate("Positive test", (0.64, 1.4), fontsize=10)
+    plt.annotate("Negative test", (0.43, 1.4), fontsize=10)
+    plt.annotate("True Positive", (0.75, 0.4), fontsize=10)
+    plt.annotate("False Positive", (0.7, 0.075), fontsize=10)
+    plt.annotate("True Negative", (0.15, 0.8), fontsize=10)
+    plt.annotate("False Negative", (0.3, 0.2), fontsize=10);
+    
+    
+
+def get_optimized_cutoff(
+    model, X_train, y_train, mesure_objectif, ministere, type_modele
+):
+    
+    # Fonction permettant d'obtenir un cut-off optimal selon le scénario 
+
+    if type_modele == "LGBM":
+        model_proba_test = model.predict_proba(X_train)[:, 1]
+    elif type_modele == "XGBoost":
+        xgb_train = xgb.DMatrix(X_train)
+        model_proba_test = model.predict(xgb_train)
+    elif type_modele == "ElasticNet":
+        model_proba_test = model.predict(X_train)
+
+
+    if ministere == "transports":
+        for borne in reversed(np.arange(0, 1, 0.01)):
+            model_pred_test = np.where(model_proba_test >= borne, 1, 0)
+            recall_max = 0
+            recall = recall_score(y_train, model_pred_test)
+            if recall >= mesure_objectif:
+                print(classification_report(y_train, model_pred_test))
+                return borne, model_pred_test
+            elif recall >= recall_max:
+                borne_max = borne
+                recall_max = recall
+                model_pred_test_max = model_pred_test
+        print(classification_report(y_train, model_pred_test_max))
+        return borne_max, model_pred_test_max
+
+    elif ministere == "économie":
+        precision_max = 0
+        for borne in np.arange(0, 1, 0.01):
+            model_pred_test = np.where(model_proba_test >= borne, 1, 0)
+            precision = precision_score(y_train, model_pred_test)
+            if precision >= mesure_objectif:
+                print(classification_report(y_train, model_pred_test))
+                return borne, model_pred_test
+            elif precision >= precision_max:
+                borne_max = borne
+                precision_max = precision
+                model_pred_test_max = model_pred_test
+        print(classification_report(y_train, model_pred_test_max))
+        return borne_max, model_pred_test_max
+
+    elif ministere == "expert":
+        youden_max = 0
+        for borne in np.arange(0, 1, 0.01):
+            model_pred_test = np.where(model_proba_test >= borne, 1, 0)
+            
+            youden = recall_score(y_train, model_pred_test, pos_label=1) + recall_score(
+                y_train, model_pred_test, pos_label=0
+            )
+            if youden >= youden_max:
+                borne_max = borne
+                youden_max = youden
+                model_pred_test_max = model_pred_test
+
+        print(classification_report(y_train, model_pred_test_max))
+        return borne_max, model_pred_test_max
+
+
+def significativite_mesure(
+    X_test, y_test, y_pred, modele, ministere, borne_inf_x, borne_inf_y
+):
+    
+    # Fonction permettant de représenter les features selon leur résultat vis-à-vis de la mesure souhaitée
+    
+    liste_features = [
+        "prof_2.0",
+        "prof_3.0",
+        "planGrp_1.0",
+        "surf_2.0",
+        "surf_8.0",
+        "atm_2.0",
+        "atm_3.0",
+        "atm_5.0",
+        "atm_7.0",
+        "atm_8.0",
+        "vospGrp_1.0",
+        "catv_EPD_exist_1",
+        "catv_PL_exist_1",
+        "trajet_coursesPromenade_conductor_1",
+        "sexe_male_conductor_1",
+        "sexe_female_conductor_1",
+        "intGrp_Croisement circulaire",
+        "intGrp_Croisement de deux routes",
+        "intGrp_Hors intersection",
+        "intGrp_Passage à niveau",
+        "catv_train_exist_1",
+        "infra_3.0",
+        "infra_5.0",
+        "infra_7.0",
+        "infra_9.0",
+        "catr_2.0",
+        "catr_3.0",
+        "catr_4.0",
+        "catr_9.0",
+        "hourGrp_nuit",
+        "lum_2.0",
+        "lum_3.0",
+        "lum_5.0",
+        "circ_2.0",
+        "circ_3.0",
+        "circ_4.0",
+        "nbvGrp_1",
+        "nbvGrp_2",
+        "nbvGrp_3",
+        "nbvGrp_4+",
+        "catv_2_roues_exist_1",
+        "col_2.0",
+        "col_3.0",
+        "col_4.0",
+        "col_5.0",
+        "col_6.0",
+        "col_7.0",
+        "obsGrp_Pas d'Obstacle",
+        "situ_2.0",
+        "situ_3.0",
+        "situ_4.0",
+        "situ_6.0",
+        "situ_8.0",
+        "populationGrp_Grande Ville",
+        "populationGrp_Métropole",
+        "populationGrp_Petite Ville",
+        "populationGrp_Village",
+        "populationGrp_Ville Moyenne",
+        "mois_label_aug",
+        "mois_label_dec",
+        "mois_label_fev",
+        "mois_label_jan",
+        "mois_label_jul",
+        "mois_label_mar",
+        "mois_label_oct",
+        "etatpGrp_pieton_alone_1",
+        "locpGrp_pieton_3_1",
+    ]
+    X_test["reel"] = y_test
+    X_test["pred"] = y_pred
+    liste_resultats = []
+    for feature in liste_features:
+        vrais_positifs = X_test[feature][(X_test.reel == 1) & (X_test.pred == 1)].sum()
+        faux_positifs = X_test[feature][(X_test.reel == 0) & (X_test.pred == 1)].sum()
+        vrais_negatifs = X_test[feature][(X_test.reel == 0) & (X_test.pred == 0)].sum()
+        faux_negatifs = X_test[feature][(X_test.reel == 1) & (X_test.pred == 0)].sum()
+        recall_feature = vrais_positifs / (vrais_positifs + faux_negatifs)
+        recall_negatif = vrais_negatifs / (vrais_negatifs + faux_positifs)
+        precision_feature = vrais_positifs / (vrais_positifs + faux_positifs)
+        precision_negatif = vrais_negatifs / (vrais_negatifs + faux_negatifs)
+
+        liste_resultats.append(
+            {
+                "feature": feature,
+                str("recall_" + modele): recall_feature,
+                str("recall_neg_" + modele): recall_negatif,
+                str("precision_" + modele): precision_feature,
+                str("precision_neg_" + modele): precision_negatif,
+                str("youden_" + modele): recall_feature + recall_negatif,
+                "taille_echantillon": vrais_positifs + faux_negatifs,
+            }
+        )
+
+    df_results = pd.DataFrame(liste_resultats)
+
+    if ministere == "transports":
+        df_results[str("mesure_" + modele)] = df_results[str("recall_" + modele)]
+        df_results[str("mesure_neg_" + modele)] = df_results[
+            str("recall_neg_" + modele)
+        ]
+    elif ministere == "économie":
+        df_results[str("mesure_" + modele)] = df_results[str("precision_" + modele)]
+        df_results[str("mesure_neg_" + modele)] = df_results[
+            str("precision_neg_" + modele)
+        ]
+    elif ministere == "expert":
+        df_results[str("mesure_" + modele)] = df_results[str("youden_" + modele)]
+        df_results[str("mesure_neg_" + modele)] = df_results[str("youden_" + modele)]
+
+    df_results = df_results[
+        [
+            "feature",
+            str("mesure_" + modele),
+            str("mesure_neg_" + modele),
+            "taille_echantillon",
+        ]
+    ]
+
+    df_results = df_results.sort_values(by=str("mesure_" + modele), ascending=False)
+    df_results = df_results[df_results["taille_echantillon"] > 100].reset_index()
+    fig, ax = plt.subplots()
+    plt.ylim(0, 1)
+    plt.xlim(0, 1)
+    ax.scatter(
+        x=df_results[str("mesure_neg_" + modele)],
+        y=df_results[str("mesure_" + modele)],
+        s=1,
+    )
+
+    if ministere == "transports":
+        plt.xlabel("Recall -")
+        plt.ylabel("Recall +")
+        plt.title("Recall + / - per feature " + str(modele))
+        ax.annotate(
+            "Good recall \n positive and negative",
+            (0.85, 0.85),
+            fontsize=8,
+            ha="center",
+        )
+        ax.annotate("Recall negative too low", (0.05, 0.85), fontsize=8)
+        ax.annotate("Recall positive too low ", (0.6, 0.2), fontsize=8)
+
+    elif ministere == "économie":
+        plt.xlabel("Precision -")
+        plt.ylabel("Precision +")
+        plt.title("Precision + / - per feature " + str(modele))
+        ax.annotate(
+            "Good precision \n positive and negative",
+            (0.85, 0.85),
+            fontsize=8,
+            ha="center",
+        )
+        ax.annotate("Precision negative too low", (0.05, 0.85), fontsize=8)
+        ax.annotate("Precision positive too low ", (0.6, 0.2), fontsize=8)
+
+    elif ministere == "expert":
+        plt.xlabel("Youden")
+        plt.ylabel("Youden")
+        plt.title("Youden per feature " + str(modele))
+        ax.annotate(
+            "Good youden",
+            (0.85, 0.85),
+            fontsize=8,
+            ha="center",
+        )
+        plt.ylim(1, 1.5)
+        plt.xlim(1, 1.5)
+
+        ax.annotate("Youden too low", (0.2, 0.7), fontsize=8)
+        ax.annotate("Youden too low ", (0.75, 0.2), fontsize=8)
+
+
+
+    ax.fill(
+        "j",
+        "k",
+        "g",
+        data={
+            "j": [borne_inf_x, borne_inf_x, 1, 1, borne_inf_x],
+            "k": [borne_inf_y, 1, 1, borne_inf_y, borne_inf_y],
+        },
+        alpha=0.2,
+    )
+
+    ax.fill(
+        "j",
+        "k",
+        "r",
+        data={
+            "j": [borne_inf_x, borne_inf_x, 0, 0, borne_inf_x],
+            "k": [borne_inf_y, 1, 1, borne_inf_y, borne_inf_y],
+        },
+        alpha=0.2,
+    )
+
+    ax.fill(
+        "j",
+        "k",
+        "r",
+        data={
+            "j": [borne_inf_x, borne_inf_x, 1, 1, borne_inf_x],
+            "k": [borne_inf_y, 0, 0, borne_inf_y, borne_inf_y],
+        },
+        alpha=0.2,
+    )
+
+    # for i, txt in enumerate(df_results["feature"]):
+    #    ax.annotate(txt, (df_results["recall"][i], df_results["recall_neg"][i]))
+
+    fig.show()
+
+    df_filtre = (
+        df_results[
+            (df_results[str("mesure_" + modele)] > borne_inf_x)
+            & (df_results[str("mesure_" + modele)] > borne_inf_y)
+        ]
+        .reset_index()
+        .drop(["index", "level_0"], axis=1)
+    )
+
+    return df_filtre
+
+
+def get_max(x):
+    # Fonction permettant de récupérer le "meilleur" modèle selon la feature
+    max_x = max(x.mesure_XGBoost, x.mesure_LGBM, x.mesure_Elastic_Net)
+    if x.mesure_XGBoost == max_x:
+        return "XGBoost"
+    elif x.mesure_LGBM == max_x:
+        return "LGBM"
+    elif x.mesure_Elastic_Net == max_x:
+        return "Elastic Net"
 
