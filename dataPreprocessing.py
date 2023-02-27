@@ -24,6 +24,7 @@ dfVarSupp = construction_variables_supp(dfVehicules, dfUsagers)
 
 # Merge des différentes table pour obtenir notre base de données finale
 dfPool = construction_table_travail(dfLieux, dfCarac, dfVarSupp)
-# Sélection des variables utilisées ensuite dans les modèles
+
+# Sélection des variables utilisées ((avec un premier XGBoost) ensuite dans les modèles
 
 selection_features_ML(dfPool)

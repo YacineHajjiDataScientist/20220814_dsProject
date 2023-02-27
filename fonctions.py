@@ -1329,12 +1329,12 @@ def save_elasticnet(X_train, y_train, alpha, l1_ratio) :
     dump(eNet, "optimal_model_en.joblib")
 
 
-def test_parametres_modele(type_modele, X_train, y_train, parameters, save_as= ""):
+def test_parametres_modele(type_modele, X_train, y_train, parameters):
 
     if type_modele == "XGBoost":
         estimator = XGBClassifier(objective="binary:logistic", num_boost_round=50, seed=1)
     elif type_modele == "Random Forest" :
-        estimator  = RandomForestClassifier()
+        estimator  = RandomForestClassifier(n_jobs=-1)
 
     kf = KFold(n_splits=5, shuffle=True, random_state=1)
 
@@ -1380,11 +1380,17 @@ def test_parametres_modele(type_modele, X_train, y_train, parameters, save_as= "
     plt.legend(loc="best")
     plt.show()
     
-    if save_as != "" : 
-         dump(grid_search, save_as)
 
     return dfGridSearch
 
+
+def save_rf(X_train, X_test, y_train, y_test) :
+    
+    rf = RandomForestClassifier()
+    rf.fit(X_train, y_train)
+    
+    dump(rf, "optimal_rf.joblib")
+    
 
 def save_xgboost(X_train, X_test, y_train, y_test, ):
     # Fonction permettant d'enregistrer le modèle XGBoost optimal
@@ -1458,15 +1464,17 @@ def get_youden_index_and_cutoffs(predictions, y_test) :
 
 
 def plot_density_model(modele, predictions, y_test) :
+    
     # Fonction permettant d'afficher la distributions des probabilités évaluées par le modèle
     # Plot
-    plt.figure(figsize=(10,4))
+    plt.figure(figsize=(6,4))
     density_plot = sns.displot(x=predictions, hue=y_test, 
                 kind='kde', fill=True, height=5, aspect=2, palette=['#4777F5', '#F54747'])
     # Adding cosmetic options
     density_plot._legend.remove()
     plt.xlabel(modele + " probability value")
     plt.ylabel("Density")
+    plt.xlim([0, 1])
     plt.title(modele + " probability distribution against accident gravity")
     plt.legend(title='Accident', loc='upper left', labels=['Severe', 'Mild'])
     plt.axvline(x=0.6, color='k', linestyle='--')
@@ -1482,19 +1490,10 @@ def plot_density_model(modele, predictions, y_test) :
     
 
 def get_optimized_cutoff(
-    model, X_train, y_train, mesure_objectif, ministere, type_modele
+    model_proba_test, X_train, y_train, mesure_objectif, ministere, type_modele
 ):
     
     # Fonction permettant d'obtenir un cut-off optimal selon le scénario 
-
-    if type_modele == "LGBM":
-        model_proba_test = model.predict_proba(X_train)[:, 1]
-    elif type_modele == "XGBoost":
-        xgb_train = xgb.DMatrix(X_train)
-        model_proba_test = model.predict(xgb_train)
-    elif type_modele == "ElasticNet":
-        model_proba_test = model.predict(X_train)
-
 
     if ministere == "transports":
         for borne in reversed(np.arange(0, 1, 0.01)):
@@ -1622,6 +1621,8 @@ def significativite_mesure(
     X_test["pred"] = y_pred
     liste_resultats = []
     for feature in liste_features:
+        
+        
         vrais_positifs = X_test[feature][(X_test.reel == 1) & (X_test.pred == 1)].sum()
         faux_positifs = X_test[feature][(X_test.reel == 0) & (X_test.pred == 1)].sum()
         vrais_negatifs = X_test[feature][(X_test.reel == 0) & (X_test.pred == 0)].sum()
@@ -1783,3 +1784,47 @@ def get_max(x):
     elif x.mesure_Elastic_Net == max_x:
         return "Elastic Net"
 
+
+
+def plot_critere_scenarios(table, youden_index, precision_index, recall_index):
+    # Fonction permettant de représenter graphiquement les indicateurs de sélection des cut-off par scénario     
+    plt.figure(figsize=(15, 18))
+    # 80% positive recall
+    plt.subplot(3, 1, 1)
+    plt.plot(table['seuils'], 
+            table['recall_1'], 
+            color='#A9845A', linewidth=3)
+    plt.xlabel("cutoff")
+    plt.ylabel("Positive recall")
+    plt.xlim([0, 1])
+    plt.ylim([-0.005, 1.05])
+    plt.xticks([0, 0.2, recall_index, 0.4, 0.6, 0.8, 1])
+    plt.title("XGBoost - determining positive recall cutoff")
+    plt.axhline(y=0.8, color='k', linestyle='--')
+    plt.annotate('', xy=(recall_index, 0.8), xytext=(recall_index, 0), arrowprops={'facecolor' : '#A9845A'})
+    # 80% positive precision
+    plt.subplot(3, 1, 2)
+    plt.plot(table['seuils'], 
+            table['precision_1'], 
+            color='#5AAA85', linewidth=3)
+    plt.xlabel("cutoff")
+    plt.ylabel("Positive precision")
+    plt.xlim([0, 1])
+    plt.ylim([-0.003, 1.05])
+    plt.xticks([0, 0.2, 0.4, 0.6, precision_index, 0.8, 1])
+    plt.title("XGBoost - determining positive precision cutoff")
+    plt.axhline(y=0.8, color='k', linestyle='--')
+    plt.annotate('', xy=(precision_index, 0.8), xytext=(precision_index, 0), arrowprops={'facecolor' : '#5AAA85'})
+    # Youden index (maximizing positive and negative recall)
+    plt.subplot(3, 1, 3)
+    plt.plot(table['seuils'], 
+            table['recall_1'] + table['recall_0'], 
+            color='#4F70A0', linewidth=3)
+    plt.xlabel("cutoff")
+    plt.ylabel("Positive + Negative recall")
+    plt.xlim([0, 1])
+    plt.ylim([0.999, 1.605])
+    plt.xticks([0, 0.2, 0.4, youden_index, 0.6, 0.8, 1])
+    plt.title("XGBoost - determining Youden index")
+    plt.axhline(y=0.78 + 0.67, color='k', linestyle='--')
+    plt.annotate('', xy=(youden_index, 0.78 + 0.67), xytext=(youden_index, 1), arrowprops={'facecolor' : '#4F70A0'});
