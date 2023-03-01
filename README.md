@@ -1,6 +1,23 @@
 # 20220814_dsProject
 DS project 'Accidents de la route'
 
+Nécessite l'installation des packages suivants :
+pandas : 1.5.2
+numpy : 1.21.5
+shap :  0.41.0
+sage : 0.0.4
+scikit-learn : 1.2.1
+joblib : 1.1.1 
+matplotlib : 3.6.2
+seaborn : 0.12.2
+optuna : 3.0.4
+plotly : 5.10.0
+scipy : 1.10.0
+xgboost : 1.7.4
+lightgbm : 3.3.3
+tensorflow : 2.11.0
+
+
 Dans ce projet, nous avons décomposé notre travail en plusieurs parties. 
 
 Le fichier "fonctions.py" comportent toutes les fonctions qui ont été utilisées dans l'étude. 
@@ -23,6 +40,17 @@ inputs : table features_matrix et table target
 Ce notebook présente la construction des modèles initiaux (RF / LogisticRegression / ElastiNet / LGBM / XGBoost /MLP) et le tuning pour les quelques modèles retenus (XGBoost, LGBM, RF, EN) avant leur enregistrement.
 ouputs : modèles optimisés
 
-4 - interpretability.ipynb
+4 - modelInterpretability.ipynb
+
+inputs : modèles optimisés enregistrés. 
+Ce notebook présente nos travaux avec la librairie SHAP pour expliquer les prédictions de nos modèles et présenter les features ayant la plus haute importance. 
+outputs : visualisations SHAP
+
+5 - vulgarisation.ipynb
+
+inputs : modèles optimisés
+Ce notebook présente notre case study et l'utilisation des modèles dans chacun des scénarios construits.
+outputs : résultats des modèles pour chaque scénario.
+
 
 
