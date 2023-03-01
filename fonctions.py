@@ -21,6 +21,7 @@ from sklearn.linear_model import (
     ElasticNet,
 )
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 import xgboost as xgb
@@ -1180,6 +1181,18 @@ def get_features_importantes(table):
     )
     print(pd.DataFrame(list(xgb1_list_27_last_features)).value_counts().head(27))
 
+def initial_SVC( X_train, X_test, y_train, y_test) :
+    scaler = StandardScaler()
+    train_scaled = scaler.fit_transform(X_train)
+    test_scaled = scaler.transform(X_test)
+
+    svc = SVC(gamma = 0.01, kernel = 'poly')
+    
+    svc.fit(train_scaled, y_train)
+    
+    return svc.score(X_test)
+    
+
 
 def get_initial_model_results(type_modele, X_train, X_test, y_train, y_test):
     # Fonction permettant de récupérer l'AUC d'un modèle selon son type
@@ -1788,7 +1801,7 @@ def get_max(x):
 
 def plot_critere_scenarios(table, youden_index, precision_index, recall_index):
     # Fonction permettant de représenter graphiquement les indicateurs de sélection des cut-off par scénario     
-    plt.figure(figsize=(15, 18))
+    plt.figure(figsize=(8, 6))
     # 80% positive recall
     plt.subplot(3, 1, 1)
     plt.plot(table['seuils'], 
