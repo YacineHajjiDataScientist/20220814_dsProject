@@ -1,58 +1,53 @@
 import streamlit as st
 from joblib import dump, load
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.ticker import FuncFormatter
+
+# from sklearn.model_selection import train_test_split
+# from fonctions import plot_density_model
 
 model_xgboost = load("optimal_xgb.joblib")
 
+# feature_matrix = pd.read_pickle('./import/20230225_table_feature_matrix.csv')
+# target = pd.read_pickle('./import/20230225_table_target.csv')
+# X_train, X_test, y_train, y_test = train_test_split(feature_matrix, target, test_size=0.2, random_state=1)
 
-st.title("Démo Streamlit : Accidents Routiers en France")
+# st.header('Rapport final - Démo Streamlit')
+st.title("Accidents Routiers en France")
+st.write(
+    """
+Le Président de la République Française vient de prendre ses fonctions. Il souhaiterait mettre en place une politique volontariste 
+en matière de Sécurité Routière. \n
+Pour ce faire, il s'appuie sur 2 de ses ministres qui défendent leur intérêts: le ministre des Transports et le ministre des Finances. \n
+Il fait également appel à un Expert Data dont l'objectif est de chercher un compromis entre les visions des ministres.
+"""
+)
 
-age_moyen_conducteurs = st.slider("Age Moyen des conducteurs", 18, 100, 30)
-nb_personnes_cote_choc = st.slider("Nombre de personnes du côté du choc", 0, 10, 1)
-nb_vehicule = st.slider("Nombre de véhicules", 0, 10, 1)
 
-conditions_atmospheriques = st.selectbox(
+# Compo de la SIDE BARRE
+st.sidebar.title("Variables du modèle")
+
+population = st.sidebar.selectbox(
+    "Taille de la ville",
+    ["Village", "Petite Ville", "Ville Moyenne", "Grande Ville", "Métropole", "Autre"],
+)
+categorie_route = st.sidebar.selectbox(
+    "Type de route",
+    [
+        "Autres",
+        "Nationales",
+        "Départementales",
+        "Communales",
+    ],
+)
+conditions_atmospheriques = st.sidebar.selectbox(
     "Conditions Météo",
     ["Pluie légère", "Pluie forte", "Brouillard", "Eblouissant", "Couvert", "Autre"],
 )
-categorie_route = st.selectbox(
-    "Type de route", ["Nationales", "Départementales", "Communales", "Autre"]
-)
-regime_circulation = st.selectbox(
-    "Régime de Circulation",
-    [
-        "Bidirectionnelle",
-        "avec Chaussées Séparées",
-        "avec Voies d'affectation variable ",
-        "Autre",
-    ],
-)
-type_collision = st.selectbox(
-    "Type de collision",
-    [
-        "2 véhicules - arrière",
-        "2 véhicules - côté",
-        "3 véhicules et + - en chaîne ",
-        "3 véhicules et + - multiples",
-        "sans collision",
-        "Autre",
-    ],
-)
-infra = st.selectbox(
-    "Infrastructure",
-    ["bretelle d'échangeur", "carrefour aménagé", "zone de péage", "Autre"],
-)
-intersection = st.selectbox(
-    "Type d'intersection",
-    [
-        "croisement circulaire",
-        "croisement de 2 routes",
-        "hors intersection",
-        "passage à niveau",
-        "Autre",
-    ],
-)
-luminosité = st.selectbox(
+nb_vehicule = st.sidebar.slider("Nombre de véhicules", 0, 10, 2)
+luminosité = st.sidebar.selectbox(
     "Luminosité",
     [
         "crépuscule ou aube",
@@ -61,55 +56,97 @@ luminosité = st.selectbox(
         "Autre",
     ],
 )
-mois = st.selectbox(
-    "Mois",
-    ["janvier", "février", "mars", "juillet", "août", "octobre", "décembre", "Autre"],
-)
-population = st.selectbox(
-    "Taille de la ville",
-    ["Village", "Petite Ville", "Ville Moyenne", "Grande Ville", "Métropole", "Autre"],
-)
-profil = st.selectbox(
-    "Profil de la route",
-    ["Pente", "Sommet de côte", "Autre"],
-)
-situation = st.selectbox(
-    "Situation de l'accident",
-    [
-        "sur bande d'arrêt d'urgence",
-        "sur accôtement",
-        "sur trottoir",
-        "sur autre voie spéciale",
-        "Autres",
-    ],
-)
-surface = st.selectbox(
-    "Surface de la route",
-    [
-        "mouillée",
-        "présence d'un corps gras - huile",
-        "Autres",
-    ],
-)
 
+# Conteneur des variables non visibles
+with st.sidebar.expander("Autres variables du modèle", expanded=False):
 
-pres_2roues = st.checkbox("présence d'un deux roues")
-pres_EPD = st.checkbox("présence d'un engin personnel de déplacement")
-pres_PL = st.checkbox("présence d'un poids lourd")
-pres_train = st.checkbox("présence d'un train")
-pres_pieton = st.checkbox("présence d'un piéton seul")
-abs_obstacle = st.checkbox("Absence d'obstacles")
-loc_pieton = st.checkbox("Piéton sur passage piéton sans signalisation lumineuse")
-nuit = st.checkbox("Accident de nuit")
-route_rectiligne = st.checkbox("Route rectiligne")
-pres_homme_volant = st.checkbox("Présence d'un homme au volant")
-pres_femme_volant = st.checkbox("Présence d'une femme au volant")
-trajet_promenade = st.checkbox("Le but du trajet était une promenade")
-pres_piste_cyclabe = st.checkbox("présence d'une piste cyclable")
+    age_moyen_conducteurs = st.slider("Age Moyen des conducteurs", 18, 100, 30)
+    nb_personnes_cote_choc = st.slider("Nombre de personnes du côté du choc", 0, 10, 1)
 
+    regime_circulation = st.selectbox(
+        "Régime de Circulation",
+        [
+            "Autre",
+            "Bidirectionnelle",
+            "avec Chaussées Séparées",
+            "avec Voies d'affectation variable ",
+        ],
+    )
+    type_collision = st.selectbox(
+        "Type de collision",
+        [
+            "Autre",
+            "3 véhicules et + - multiples",
+            "2 véhicules - arrière",
+            "2 véhicules - côté",
+            "3 véhicules et + - en chaîne ",
+            "sans collision",
+        ],
+    )
+    infra = st.selectbox(
+        "Infrastructure",
+        [
+            "Autre",
+            "bretelle d'échangeur",
+            "carrefour aménagé",
+            "zone de péage",
+        ],
+    )
+    intersection = st.selectbox(
+        "Type d'intersection",
+        [
+            "Autre",
+            "passage à niveau" "croisement circulaire",
+            "croisement de 2 routes",
+            "hors intersection",
+        ],
+    )
+
+    mois = st.selectbox(
+        "Mois",
+        [
+            "mars",
+            "janvier",
+            "février",
+            "juillet",
+            "août",
+            "octobre",
+            "décembre",
+            "Autre",
+        ],
+    )
+
+    profil = st.selectbox("Profil de la route", ["Pente", "Sommet de côte", "Autre"])
+    situation = st.selectbox(
+        "Situation de l'accident",
+        [
+            "Autres",
+            "sur bande d'arrêt d'urgence",
+            "sur accôtement",
+            "sur trottoir",
+            "sur autre voie spéciale",
+        ],
+    )
+    surface = st.selectbox(
+        "Surface de la route",
+        ["Autres", "présence d'un corps gras - huile", "mouillée"],
+    )
+    pres_2roues = st.checkbox("présence d'un deux roues")
+    pres_EPD = st.checkbox("présence d'un engin personnel de déplacement")
+    pres_PL = st.checkbox("présence d'un poids lourd")
+    pres_train = st.checkbox("présence d'un train")
+    pres_pieton = st.checkbox("présence d'un piéton seul")
+    abs_obstacle = st.checkbox("Absence d'obstacles")
+    loc_pieton = st.checkbox("Piéton sur passage piéton sans signalisation lumineuse")
+    nuit = st.checkbox("Accident de nuit")
+    route_rectiligne = st.checkbox("Route rectiligne")
+    pres_homme_volant = st.checkbox("Présence d'un homme au volant")
+    pres_femme_volant = st.checkbox("Présence d'une femme au volant")
+    trajet_promenade = st.checkbox("Le but du trajet était une promenade")
+    pres_piste_cyclabe = st.checkbox("présence d'une piste cyclable")
+    # ... Fin du conteneur
 
 result = st.button("Effectuer la prédiction")
-
 if result:
     X_test = pd.DataFrame(
         columns=[
@@ -310,7 +347,58 @@ if result:
 
     proba = model_xgboost.predict_proba(X_test)
 
-    st.success(proba)
+    limits = [32, 43, 63, 100]
+    data_to_plot = ("Probabilité de gravité", round(proba[0, 1] * 100, 0))
+    palette = sns.color_palette("Blues", len(limits))
+    fig, ax = plt.subplots()
+    ax.set_aspect("equal")
+    ax.set_yticks([1])
+    ax.set_yticklabels([data_to_plot[0]])
+
+    prev_limit = 0
+    for idx, lim in enumerate(limits):
+        ax.barh([1], lim - prev_limit, left=prev_limit, height=15, color=palette[idx])
+        prev_limit = lim
+
+    ax.barh([1], data_to_plot[1], color="black", height=5)
+    plt.annotate(
+        "Ministre des \n Transports",
+        xy=(32, 9),
+        xytext=(27, 14),
+        arrowprops={
+            "facecolor": "blue",
+            "linewidth": 0.5,
+            "headwidth": 10,
+            "headlength": 4,
+        },
+        size=6,
+    )
+    plt.annotate(
+        "Expert \n Data",
+        xy=(43, 9),
+        xytext=(40, 14),
+        arrowprops={
+            "facecolor": "blue",
+            "linewidth": 0.5,
+            "headwidth": 10,
+            "headlength": 4,
+        },
+        size=6,
+    )
+    plt.annotate(
+        "Ministre de \n l'Economie",
+        xy=(63, 9),
+        xytext=(58, 14),
+        arrowprops={
+            "facecolor": "blue",
+            "linewidth": 0.5,
+            "headwidth": 10,
+            "headlength": 4,
+        },
+        size=6,
+    )
+    plt.tight_layout()
+    st.pyplot(fig=fig)
 
 
 ### Besoin dans le streamlit d'afficher les paramètres
